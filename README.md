@@ -27,7 +27,7 @@ A Claude Code skill and standalone toolkit for defending JavaScript projects aga
 
 On March 31, 2026, the widely-used `axios` npm package (v1.14.1 and v0.30.4) was compromised through a maintainer account takeover attributed to **UNC1069/DPRK-APT** (per Google Threat Intelligence Group). The attack injected a phantom dependency (`plain-crypto-js@4.2.1`) that deployed a cross-platform RAT via `postinstall` scripts, disguised as legitimate system processes.
 
-**Supply Chain Guard (SCG)** was built during the incident to provide:**
+**Supply Chain Guard (SCG)** was built during the incident to provide:
 
 1. **Immediate detection** — Is my machine or project affected right now?
 2. **Structured assessment** — How severe is it? What's the blast radius?
@@ -112,8 +112,8 @@ Then invoke in Claude Code:
 ./scripts/ioc-scan.sh
 
 # Remediation (interactive, every action requires confirmation)
-./scripts/respond.sh --critical   # Full RAT cleanup
-./scripts/respond.sh --high       # Pin to safe version
+./scripts/respond.sh --critical              # Full RAT cleanup
+./scripts/respond.sh --high axios 1.14.0     # Pin to safe version
 ```
 
 > **Safety design:** All scan scripts are strictly read-only — they never modify, delete, or install anything. The remediation script (`respond.sh`) is the only script that performs destructive operations, and **every single action requires explicit `[y/N]` confirmation** with a default of NO.
@@ -263,7 +263,8 @@ Interactive remediation. **Every destructive action requires `[y/N]` confirmatio
 ./scripts/respond.sh --critical
 
 # HIGH: Pin compromised package to safe version
-./scripts/respond.sh --high
+./scripts/respond.sh --high axios 1.14.0
+./scripts/respond.sh --high event-stream 3.3.5
 ```
 
 Steps in `--critical` mode:
@@ -303,7 +304,7 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies (hardened)
-        run: npm ci --ignore-scripts --frozen-lockfile
+        run: npm ci --ignore-scripts
 
       - name: Run SCG project scan
         run: |
@@ -321,10 +322,10 @@ jobs:
 ```bash
 # Always use in CI:
 npm ci --ignore-scripts          # Block postinstall execution
-npm ci --frozen-lockfile          # Enforce lockfile integrity (npm 9+)
+# npm ci already enforces lockfile integrity by design (errors on mismatch)
 
 # Yarn equivalent:
-yarn install --frozen-lockfile
+yarn install --frozen-lockfile --ignore-scripts
 ```
 
 ---
@@ -344,14 +345,20 @@ yarn install --frozen-lockfile
 
 ### If HIGH (compromised version installed)
 
-1. **Pin safe version** in `package.json`:
+1. **Pin safe version** using respond.sh:
+   ```bash
+   ./scripts/respond.sh --high axios 1.14.0
+   ```
+   This adds `overrides` (npm) or `resolutions` (yarn) to package.json, reinstalls, and prompts for verification.
+
+2. **Or manually** in `package.json`:
    ```json
    { "overrides": { "axios": "1.14.0" } }
    ```
    Yarn: `{ "resolutions": { "axios": "1.14.0" } }`
 
-2. **Reinstall**: `npm ci`
-3. **Verify**: Re-run scan
+3. **Reinstall**: `npm ci`
+4. **Verify**: Re-run scan
 
 ---
 

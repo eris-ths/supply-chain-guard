@@ -169,6 +169,9 @@ do_critical() {
 # HIGH response — version pin
 # ═══════════════════════════════════════════
 do_high() {
+  local pkg="${2:-}"
+  local safe_ver="${3:-}"
+
   echo ""
   printf "${YELLOW}${BOLD}SCG — HIGH Response${NC}\n"
   printf "Pin compromised package to a safe version.\n"
@@ -176,6 +179,15 @@ do_high() {
 
   if [ ! -f "package.json" ]; then
     printf "${RED}ERROR: package.json not found in current directory.${NC}\n"
+    exit 1
+  fi
+
+  if [ -z "$pkg" ] || [ -z "$safe_ver" ]; then
+    echo "Usage: ./respond.sh --high <package> <safe_version>"
+    echo ""
+    echo "Examples:"
+    echo "  ./respond.sh --high axios 1.14.0"
+    echo "  ./respond.sh --high event-stream 3.3.5"
     exit 1
   fi
 
@@ -191,23 +203,25 @@ do_high() {
   echo "─── Step 1/3: Pin Safe Version ─────────────"
   echo "   Package manager: $_PM"
   echo "   Will add to package.json:"
-  echo "     \"$_KEY\": { \"axios\": \"1.14.0\" }"
+  echo "     \"$_KEY\": { \"$pkg\": \"$safe_ver\" }"
   echo ""
 
   if confirm "Add version override to package.json?"; then
     python3 -c "
-import json
+import json, sys
 with open('package.json', 'r') as f:
-    pkg = json.load(f)
-key = '$_KEY'
-if key not in pkg:
-    pkg[key] = {}
-pkg[key]['axios'] = '1.14.0'
+    data = json.load(f)
+key = sys.argv[1]
+pkg = sys.argv[2]
+ver = sys.argv[3]
+if key not in data:
+    data[key] = {}
+data[key][pkg] = ver
 with open('package.json', 'w') as f:
-    json.dump(pkg, f, indent=2)
+    json.dump(data, f, indent=2)
     f.write('\n')
 print('   Added override.')
-"
+" "$_KEY" "$pkg" "$safe_ver"
     printf "   ${GREEN}Done.${NC}\n"
   fi
   echo ""
@@ -233,11 +247,14 @@ print('   Added override.')
 show_help() {
   echo "Supply Chain Guard — Remediation Script"
   echo ""
-  echo "Usage: ./respond.sh [--critical | --high]"
+  echo "Usage:"
+  echo "  ./respond.sh --critical                     Full RAT cleanup"
+  echo "  ./respond.sh --high <package> <safe_version> Pin to safe version"
   echo ""
-  echo "Modes:"
-  echo "  --critical  Full RAT cleanup (kill, remove, reinstall)"
-  echo "  --high      Pin compromised package to safe version"
+  echo "Examples:"
+  echo "  ./respond.sh --critical"
+  echo "  ./respond.sh --high axios 1.14.0"
+  echo "  ./respond.sh --high event-stream 3.3.5"
   echo ""
   echo "Every destructive action requires explicit [y/N] confirmation."
   echo "Default is NO — pressing Enter skips the action."
@@ -251,6 +268,6 @@ show_help() {
 # ─── Main ───
 case "$_MODE" in
   --critical) do_critical ;;
-  --high)     do_high ;;
+  --high)     do_high "$@" ;;
   *)          show_help ;;
 esac
