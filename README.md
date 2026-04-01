@@ -236,7 +236,7 @@ Full environment scan. Checks IOC artifacts, scans all lockfiles under `~/Develo
 
 ```bash
 ./scripts/env-scan.sh [scan_root_dir]
-# Default: ~/Develop
+# Default: $HOME
 ```
 
 ### `scripts/project-scan.sh`
@@ -329,6 +329,12 @@ npm ci --ignore-scripts          # Block postinstall execution
 # Yarn equivalent:
 yarn install --frozen-lockfile --ignore-scripts
 ```
+
+> **Pin actions by SHA, not tag.** The example above uses `actions/checkout@v4` for readability, but tags can be moved. In production, pin to a full commit SHA to prevent action supply chain attacks:
+> ```yaml
+> - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+> - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af  # v4.1.0
+> ```
 
 ---
 
@@ -443,6 +449,8 @@ R.N → converge|continue
 ---
 
 ## Disclaimer
+
+SCG was built to help developers respond quickly when supply chain incidents hit. We want this tool to be genuinely useful — and part of being useful is being honest about what it can and cannot do.
 
 **This software is provided "as-is" without warranty of any kind.** By using Supply Chain Guard, you acknowledge and agree to the following:
 

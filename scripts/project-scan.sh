@@ -72,10 +72,12 @@ if [ -f "package-lock.json" ]; then
   else
     echo "[L2:osv] osv-scanner not installed — using API fallback"
     python3 -c "
-import json, urllib.request as ur
+import json, urllib.request as ur, urllib.error, time, sys
 lk = json.load(open('package-lock.json'))
 ps = lk.get('packages', lk.get('dependencies', {}))
 hits = []
+errors = 0
+rate_limited = False
 for p, i in ps.items():
     n = i.get('name') or p.replace('node_modules/', '')
     v = i.get('version', '')
@@ -90,14 +92,25 @@ for p, i in ps.items():
         ).read())
         if r.get('vulns'):
             hits.append(f'{n}@{v}: {[x[\"id\"] for x in r[\"vulns\"][:3]]}')
+    except urllib.error.HTTPError as e:
+        if e.code == 429:
+            if not rate_limited:
+                print('  [warn] OSV API rate limit hit — remaining deps unchecked', file=sys.stderr)
+                rate_limited = True
+            break
+        errors += 1
     except:
-        pass
+        errors += 1
 if hits:
     print('[L2:osv] HITS:')
     for h in hits:
         print(f'  !!{h}')
+elif rate_limited:
+    print('[L2:osv] PARTIAL — rate limited before full scan. Install osv-scanner for reliable results.')
 else:
     print('[L2:osv] CLEAR')
+if errors > 0:
+    print(f'  [info] {errors} packages skipped due to API errors')
 " 2>/dev/null || echo "[L2:osv] ERR — API check failed"
   fi
 elif [ -f "yarn.lock" ]; then

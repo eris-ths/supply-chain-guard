@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-_ROOT="${1:-$HOME/Develop}"
+_ROOT="${1:-$HOME}"
 _OS=$(uname -s)
 _EXIT_CODE=0
 

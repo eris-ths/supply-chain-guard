@@ -287,10 +287,11 @@ fi
 
 ```bash
 # ─── fallback: OSV.dev API (slow for 100+ deps, not recommended for CI) ───
+# Handles 429 rate limiting: warns and stops, reports PARTIAL result
 python3 -c "
-import json,urllib.request as ur
+import json,urllib.request as ur,urllib.error,sys
 lk=json.load(open('package-lock.json'))
-ps=lk.get('packages',lk.get('dependencies',{}));h=[]
+ps=lk.get('packages',lk.get('dependencies',{}));h=[];rl=False
 for p,i in ps.items():
  n=i.get('name')or p.replace('node_modules/','');v=i.get('version','')
  if not n or not v:continue
@@ -298,8 +299,12 @@ for p,i in ps.items():
  try:
   r=json.loads(ur.urlopen(ur.Request('https://api.osv.dev/v1/query',data=b,headers={'Content-Type':'application/json'}),timeout=5).read())
   if r.get('vulns'):h.append(f'{n}@{v}:{[x[\"id\"] for x in r[\"vulns\"][:3]]}')
+ except urllib.error.HTTPError as e:
+  if e.code==429:rl=True;break
  except:pass
-print('L2:HITS:\\n'+' \\n'.join(h) if h else 'L2:CLEAR')
+if h:print('L2:HITS:\\n'+' \\n'.join(h))
+elif rl:print('L2:PARTIAL—rate_limited. Install osv-scanner for reliable results.')
+else:print('L2:CLEAR')
 " 2>/dev/null
 ```
 
@@ -355,7 +360,7 @@ env_scan mode only. Cross-project batch detection of compromised packages.
 
 ```bash
 # ─── env_scan: cross-project lockfile scan ───
-_ROOT="${1:-$HOME/Develop}"
+_ROOT="${1:-$HOME}"
 echo "=== env_cross_scan: $_ROOT ==="
 
 # D.2 compromised versions (SOT: KnownThreats.pkg[])
