@@ -254,186 +254,68 @@ round(N):
 
 # §I — Infrastructure Layer
 
+> **SOT: `scripts/` directory.** Code lives in scripts, this section describes what each scanner does and when to use it.
+
 ## I.1 Scanner: npm_audit
 
-```bash
-npm audit --json 2>/dev/null | python3 -c "
-import sys,json
-try:
- d=json.load(sys.stdin);vs=d.get('vulnerabilities',{})
- if not vs: print('L1:CLEAR')
- else:
-  for n,i in vs.items():
-   s=i.get('severity','?');va=[v.get('title','?') if isinstance(v,dict) else v for v in i.get('via',[])]
-   print(f'!!{s.upper()}:{n}—{va}')
-except: print('L1:ERR—manual_check')
-"
-```
+Runs `npm audit --json` and parses vulnerabilities by severity. Reports `L1:CLEAR` or `!!{SEVERITY}:{package}`.
+
+**Implementation:** `scripts/project-scan.sh` — L1 section
 
 ## I.2 Scanner: osv
 
-Prefer osv-scanner CLI (Google official). Falls back to API if not installed.
+Checks all dependencies against Google's OSV database. Prefers `osv-scanner` CLI (fast, offline-capable). Falls back to OSV.dev REST API with 429 rate-limit handling (warns and reports `L2:PARTIAL`).
 
-```bash
-# ─── preferred: osv-scanner CLI (fast, scans all deps at once) ───
-# install: go install github.com/google/osv-scanner/cmd/osv-scanner@latest
-#   or: brew install osv-scanner
-osv-scanner --lockfile=package-lock.json 2>/dev/null
-_OSV_EXIT=$?
-if [ $_OSV_EXIT -eq 127 ]; then
-  echo "L2:osv-scanner not found — fallback to API"
-fi
-```
+**Install:** `brew install osv-scanner` or `go install github.com/google/osv-scanner/cmd/osv-scanner@latest`
 
-```bash
-# ─── fallback: OSV.dev API (slow for 100+ deps, not recommended for CI) ───
-# Handles 429 rate limiting: warns and stops, reports PARTIAL result
-python3 -c "
-import json,urllib.request as ur,urllib.error,sys
-lk=json.load(open('package-lock.json'))
-ps=lk.get('packages',lk.get('dependencies',{}));h=[];rl=False
-for p,i in ps.items():
- n=i.get('name')or p.replace('node_modules/','');v=i.get('version','')
- if not n or not v:continue
- b=json.dumps({'package':{'name':n,'ecosystem':'npm'},'version':v}).encode()
- try:
-  r=json.loads(ur.urlopen(ur.Request('https://api.osv.dev/v1/query',data=b,headers={'Content-Type':'application/json'}),timeout=5).read())
-  if r.get('vulns'):h.append(f'{n}@{v}:{[x[\"id\"] for x in r[\"vulns\"][:3]]}')
- except urllib.error.HTTPError as e:
-  if e.code==429:rl=True;break
- except:pass
-if h:print('L2:HITS:\\n'+' \\n'.join(h))
-elif rl:print('L2:PARTIAL—rate_limited. Install osv-scanner for reliable results.')
-else:print('L2:CLEAR')
-" 2>/dev/null
-```
+**Implementation:** `scripts/project-scan.sh` — L2 section
 
 ## I.3 Scanner: static_list
 
-Source of truth is D.2 KnownThreats. When adding here, also update D.2.mal[] and D.2.pkg[].
+Checks for known malicious packages from D.2 KnownThreats. When adding new threats, update D.2.mal[] and D.2.pkg[] simultaneously.
 
-```bash
-# D.2 KnownThreats.mal[] + T003_typosquat.pkg[] materialized
-_M=(plain-crypto-js flatmap-stream crossenv loadsh crypto-js-esm)
-for p in "${_M[@]}";do npm list "$p" 2>/dev/null|grep -v empty&&echo "!!L3:$p";done
-```
+**Checked packages:** `plain-crypto-js`, `flatmap-stream`, `crossenv`, `loadsh`, `crypto-js-esm`
+
+**Implementation:** `scripts/project-scan.sh` — L3 section, `scripts/env-scan.sh` — Phase 4
 
 ## I.4 Scanner: ioc_fs
 
-IOC paths sourced from D.2 KnownThreats.ioc_fs. Auto-detects OS and runs platform-specific checks.
+IOC paths sourced from D.2 KnownThreats.ioc_fs. Auto-detects OS (Darwin/Linux/Windows) and runs platform-specific filesystem, process, persistence, and network checks.
 
-```bash
-# — Auto-detect OS, run platform-specific checks —
-_OS=$(uname -s)
-echo "[IOC:fs] scanning $_OS..."
-
-case "$_OS" in
-  Darwin)
-    ls /Library/Caches/com.apple.act.mond 2>/dev/null&&echo "!!C:darwin_rat_bin"
-    ls ~/Library/LaunchAgents/com.apple.act.mond.plist 2>/dev/null&&echo "!!C:darwin_la"
-    pgrep -f com.apple.act.mond 2>/dev/null&&echo "!!C:darwin_proc"
-    ;;
-  Linux)
-    ls /tmp/ld.py 2>/dev/null&&echo "!!C:linux_rat"
-    ls /tmp/.npm-cache/ 2>/dev/null&&echo "!!S:linux_stage"
-    pgrep -f "python3 /tmp/ld.py" 2>/dev/null&&echo "!!C:linux_proc"
-    crontab -l 2>/dev/null|grep -i "ld.py\|npm-cache"&&echo "!!C:linux_cron"
-    ;;
-esac
-
-# network (all OS) — see D.2.c2
-lsof -i -nP 2>/dev/null|grep -E '142\.11\.206\.73|sfrclak'&&echo "!!C:c2_active"
-```
-
-```powershell
-# — win32 (PowerShell) — Windows only —
-$ioc = @("$env:PROGRAMDATA\wt.exe","$env:TEMP\6202033.vbs","$env:TEMP\6202033.ps1")
-foreach ($f in $ioc) { if (Test-Path $f) { Write-Host "!!C:win_$($f|Split-Path -Leaf)" } }
-Get-Process wt -EA 0 | Where-Object {$_.Path -like "*ProgramData*"} | ForEach-Object { Write-Host "!!C:win_proc" }
-schtasks /query /TN WindowsTerminalUpdate 2>$null && Write-Host "!!C:win_schtask"
-netstat -an | Select-String "142.11.206.73" | ForEach-Object { Write-Host "!!C:c2_active" }
-```
+**Implementation:**
+- macOS/Linux: `scripts/ioc-scan.sh`
+- Windows: `scripts/ioc-scan.ps1`
+- Integrated: `scripts/project-scan.sh` — IOC section, `scripts/env-scan.sh` — Phase 1-2
 
 ## I.4b Scanner: env_cross_scan
 
-env_scan mode only. Cross-project batch detection of compromised packages.
+env_scan mode only. Finds all `package-lock.json` files under a root directory (default: `$HOME`) and batch-checks for compromised versions and malicious packages.
 
-```bash
-# ─── env_scan: cross-project lockfile scan ───
-_ROOT="${1:-$HOME}"
-echo "=== env_cross_scan: $_ROOT ==="
-
-# D.2 compromised versions (SOT: KnownThreats.pkg[])
-_COMPROMISED='1\.14\.1\|0\.30\.4'
-# D.2 malicious packages (SOT: KnownThreats.mal[] + T003.pkg[])
-_MALICIOUS=(plain-crypto-js flatmap-stream crossenv loadsh crypto-js-esm)
-
-# axios version check
-find "$_ROOT" -name "package-lock.json" -not -path "*/node_modules/*" -maxdepth 5 2>/dev/null | while read f; do
-  hit=$(grep -A2 '"axios"' "$f" 2>/dev/null | grep '"version"' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | grep -E "$_COMPROMISED")
-  [ -n "$hit" ] && echo "!!HIGH: $(dirname $f) — axios@$hit"
-done
-
-# malicious package check
-for mal in "${_MALICIOUS[@]}"; do
-  find "$_ROOT" -name "package-lock.json" -not -path "*/node_modules/*" -maxdepth 5 -exec grep -l "\"$mal\"" {} \; 2>/dev/null | while read f; do
-    echo "!!CRITICAL: $mal in $(dirname $f)"
-  done
-done
-
-echo "env_cross_scan: done"
-```
+**Implementation:** `scripts/env-scan.sh` — Phase 3-4
 
 ## I.5 Scanner: lockfile_integrity
 
-```bash
-npm ci --dry-run 2>&1|tail -5
-grep -c '"integrity"' package-lock.json 2>/dev/null
-```
+Runs `npm ci --dry-run` and counts integrity hashes to verify lockfile consistency.
+
+**Implementation:** `scripts/project-scan.sh` — LF section
 
 ## I.6 Responder: critical_cleanup
 
-Executes A.3.on_CRITICAL. IOC paths from D.2 KnownThreats, steps match A.3.seq.
-**These commands are destructive. Always get user confirmation before executing.**
+Executes A.3.on_CRITICAL: network isolate → kill processes → remove persistence → clean npm → reinstall → rescan. **Every step requires explicit user confirmation (default: NO).**
 
-```bash
-# ⚠️ DESTRUCTIVE — CONFIRM_BEFORE_EXEC
-# S1:net_isolate — block D.2.c2.dom
-echo "127.0.0.1 sfrclak.com"|sudo tee -a /etc/hosts
-# S2:kill — darwin
-pkill -f com.apple.act.mond 2>/dev/null
-# S2:kill — linux
-pkill -f "python3 /tmp/ld.py" 2>/dev/null
-# S2:kill — win32(pwsh): Stop-Process -Name wt -Force -EA 0
-# S3:rm_persist — darwin
-launchctl remove com.apple.act.mond 2>/dev/null
-rm -f ~/Library/LaunchAgents/com.apple.act.mond.plist /Library/Caches/com.apple.act.mond
-# S3:rm_persist — linux
-crontab -l|grep -v "ld.py\|npm-cache"|crontab -;rm -f /tmp/ld.py /tmp/.npm-cache/
-# S3:rm_persist — win32(pwsh):
-#   schtasks /Delete /TN WindowsTerminalUpdate /F
-#   ri "$env:PROGRAMDATA\wt.exe","$env:TEMP\6202033.vbs","$env:TEMP\6202033.ps1" -Force
-# S4:npm_clean
-rm -rf node_modules package-lock.json;npm cache clean --force
-# S5:reinstall
-npm install&&npm ci
-# S6:rescan → rerun A.2 pipeline, expect CLEAR
-```
+**Implementation:** `scripts/respond.sh --critical`
 
 ## I.7 Responder: version_pin
 
-```json
-{"overrides":{"axios":"1.14.0"}}
-```
-yarn: `"resolutions":{"axios":"1.14.0"}`
+Adds `overrides` (npm) or `resolutions` (yarn) to package.json, pinning a compromised package to a safe version. Accepts any package name and version as arguments.
+
+**Implementation:** `scripts/respond.sh --high <package> <safe_version>`
 
 ## I.8 Responder: cicd_harden
 
-```bash
-npm ci --ignore-scripts          # postinstall bypass
-npm ci --frozen-lockfile          # lockfile strict (npm9+)
-yarn install --frozen-lockfile    # yarn equiv
-```
+CI/CD hardening: `npm ci --ignore-scripts` (block postinstall), `yarn install --frozen-lockfile --ignore-scripts`.
+
+**Implementation:** See README.md — CI/CD Integration section
 
 ---
 

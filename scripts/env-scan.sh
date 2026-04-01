@@ -72,9 +72,13 @@ echo ""
 echo "─── Cross-project: Compromised Versions ──"
 
 # axios compromised versions (T001)
-_COMPROMISED='1\.14\.1\|0\.30\.4'
+_COMPROMISED='1\.14\.1|0\.30\.4'
 _AXIOS_RESULT=$(find "$_ROOT" -name "package-lock.json" -not -path "*/node_modules/*" -maxdepth 5 2>/dev/null | while read -r f; do
-  hit=$(grep -A2 '"axios"' "$f" 2>/dev/null | grep '"version"' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | grep -E "$_COMPROMISED" || true)
+  hit=$(grep -A1 '"node_modules/axios"' "$f" 2>/dev/null | grep '"version"' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | grep -E "$_COMPROMISED" || true)
+  if [ -z "$hit" ]; then
+    # fallback: check dependencies section (lockfileVersion 1 format)
+    hit=$(grep -A1 '"axios":' "$f" 2>/dev/null | grep '"version"' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | grep -E "$_COMPROMISED" || true)
+  fi
   if [ -n "$hit" ]; then
     echo "!!HIGH: $(dirname "$f") — axios@$hit"
   fi

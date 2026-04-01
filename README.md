@@ -1,14 +1,15 @@
 # Supply Chain Guard (SCG)
 
-> **Detect, assess, and respond to npm/yarn supply chain attacks — powered by AI.**
+> **Detect, assess, and respond to npm/yarn supply chain attacks.**
 
-A Claude Code skill and standalone toolkit for defending JavaScript projects against supply chain compromises. Built with real-world incident response in mind, including the [axios@1.14.1 RAT incident (2026-03-31)](https://elastic.co/security-labs/axios-one-rat-to-rule-them-all).
+A Claude Code skill and standalone toolkit for defending npm/yarn projects against supply chain compromises. Built with real-world incident response in mind, including the [axios@1.14.1 RAT incident (2026-03-31)](https://elastic.co/security-labs/axios-one-rat-to-rule-them-all).
 
 ---
 
 ## Table of Contents
 
 - [Why This Exists](#why-this-exists)
+- [How SCG Differs from Existing Tools](#how-scg-differs-from-existing-tools)
 - [Architecture](#architecture)
 - [Quick Start](#quick-start)
 - [Scan Modes](#scan-modes)
@@ -35,6 +36,29 @@ On March 31, 2026, the widely-used `axios` npm package (v1.14.1 and v0.30.4) was
 2. **Structured assessment** — How severe is it? What's the blast radius?
 3. **Guided response** — Step-by-step remediation with safety confirmations
 4. **Ongoing defense** — An 8-gate verification framework to prevent recurrence
+
+---
+
+## How SCG Differs from Existing Tools
+
+SCG is not a replacement for existing security tools. It combines multiple detection layers with a structured verification framework and guided remediation — designed for use **during active incidents** or as a periodic check alongside your existing tooling.
+
+| Tool | What it does | How SCG relates |
+|------|-------------|-----------------|
+| **`npm audit`** | Checks registry for known vulnerabilities | SCG includes npm audit as its L1 layer, then adds IOC filesystem/network scanning, malicious package detection, and a structured response workflow on top |
+| **`osv-scanner`** | Scans lockfiles against Google's OSV database | SCG includes OSV as its L2 layer. osv-scanner doesn't check for RAT artifacts on your filesystem or active C2 connections |
+| **Snyk / Socket.dev** | Commercial SaaS with real-time monitoring, PR checks, license scanning | SCG is free, local-first, no account required, no data sent to third parties. Designed for immediate incident response rather than ongoing monitoring |
+| **Manual IR** | Ad-hoc investigation with custom scripts | SCG provides a repeatable framework (8 verification gates, convergence loop, severity matrix) instead of one-off checklists that vary per incident |
+
+**When to use SCG:**
+- A supply chain incident just dropped and you need to check your machines and projects **right now**
+- You want a structured, repeatable process for verifying that a compromise has been fully addressed
+- You need a lightweight check that runs locally without SaaS dependencies
+
+**When to use something else:**
+- You need continuous real-time monitoring → Snyk, Socket.dev
+- You need license compliance scanning → Snyk, FOSSA
+- You need coverage beyond npm/yarn → osv-scanner (supports pip, cargo, go, etc.)
 
 ---
 
