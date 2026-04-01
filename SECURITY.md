@@ -19,12 +19,6 @@ Contact the maintainer directly at the email associated with the [@eris-ths](htt
 - Potential impact
 - Suggested fix (if any)
 
-## Response Timeline
-
-- **Acknowledgment**: Within 48 hours
-- **Initial assessment**: Within 7 days
-- **Fix or mitigation**: Depends on severity, but we aim for 30 days for critical issues
-
 ## Scope
 
 The following are in scope for security reports:
