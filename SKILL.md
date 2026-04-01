@@ -254,68 +254,119 @@ round(N):
 
 # §I — Infrastructure Layer
 
-> **SOT: `scripts/` directory.** Code lives in scripts, this section describes what each scanner does and when to use it.
+> **SOT: `scripts/` directory.** Full implementations live in scripts. This section provides the essential command patterns so this skill works standalone without reading scripts.
 
 ## I.1 Scanner: npm_audit
 
-Runs `npm audit --json` and parses vulnerabilities by severity. Reports `L1:CLEAR` or `!!{SEVERITY}:{package}`.
+```bash
+npm audit --json | python3 -c "import sys,json; d=json.load(sys.stdin); vs=d.get('vulnerabilities',{}); [print(f'!!{i[\"severity\"].upper()}:{n}') for n,i in vs.items()] if vs else print('L1:CLEAR')"
+```
 
-**Implementation:** `scripts/project-scan.sh` — L1 section
+**Full implementation:** `scripts/project-scan.sh` — L1 section
 
 ## I.2 Scanner: osv
 
-Checks all dependencies against Google's OSV database. Prefers `osv-scanner` CLI (fast, offline-capable). Falls back to OSV.dev REST API with 429 rate-limit handling (warns and reports `L2:PARTIAL`).
+```bash
+# preferred (fast)
+osv-scanner --lockfile=package-lock.json
+
+# fallback (API, handles 429 rate limiting)
+# POST https://api.osv.dev/v1/query {package:{name,ecosystem:"npm"},version} per dep
+# On 429: stop, report L2:PARTIAL
+```
 
 **Install:** `brew install osv-scanner` or `go install github.com/google/osv-scanner/cmd/osv-scanner@latest`
 
-**Implementation:** `scripts/project-scan.sh` — L2 section
+**Full implementation:** `scripts/project-scan.sh` — L2 section
 
 ## I.3 Scanner: static_list
 
-Checks for known malicious packages from D.2 KnownThreats. When adding new threats, update D.2.mal[] and D.2.pkg[] simultaneously.
+```bash
+# D.2 malicious packages — check if any are installed
+for p in plain-crypto-js flatmap-stream crossenv loadsh crypto-js-esm; do
+  npm list "$p" 2>/dev/null | grep -v empty | grep -q "$p" && echo "!!L3:$p"
+done
+```
 
-**Checked packages:** `plain-crypto-js`, `flatmap-stream`, `crossenv`, `loadsh`, `crypto-js-esm`
+When adding new threats, update D.2.mal[] and D.2.pkg[] simultaneously.
 
-**Implementation:** `scripts/project-scan.sh` — L3 section, `scripts/env-scan.sh` — Phase 4
+**Full implementation:** `scripts/project-scan.sh` — L3 section, `scripts/env-scan.sh` — Phase 4
 
 ## I.4 Scanner: ioc_fs
 
-IOC paths sourced from D.2 KnownThreats.ioc_fs. Auto-detects OS (Darwin/Linux/Windows) and runs platform-specific filesystem, process, persistence, and network checks.
+```bash
+# Darwin
+ls /Library/Caches/com.apple.act.mond ~/Library/LaunchAgents/com.apple.act.mond.plist 2>/dev/null
+pgrep -f com.apple.act.mond
 
-**Implementation:**
-- macOS/Linux: `scripts/ioc-scan.sh`
-- Windows: `scripts/ioc-scan.ps1`
-- Integrated: `scripts/project-scan.sh` — IOC section, `scripts/env-scan.sh` — Phase 1-2
+# Linux
+ls /tmp/ld.py /tmp/.npm-cache/ 2>/dev/null
+pgrep -f "python3 /tmp/ld.py"
+crontab -l 2>/dev/null | grep -i "ld.py\|npm-cache"
+
+# Network (all OS) — D.2.c2
+lsof -i -nP 2>/dev/null | grep -E '142\.11\.206\.73|sfrclak'
+```
+
+IOC paths sourced from D.2 KnownThreats.ioc_fs. Windows: see `scripts/ioc-scan.ps1`.
+
+**Full implementation:** `scripts/ioc-scan.sh`, `scripts/project-scan.sh` — IOC section
 
 ## I.4b Scanner: env_cross_scan
 
-env_scan mode only. Finds all `package-lock.json` files under a root directory (default: `$HOME`) and batch-checks for compromised versions and malicious packages.
+```bash
+# Find all lockfiles, check for compromised axios versions + malicious packages
+find "$ROOT" -name "package-lock.json" -not -path "*/node_modules/*" -maxdepth 5 | while read f; do
+  grep -A1 '"node_modules/axios"' "$f" | grep '"version"' | grep -oE '[0-9.]+' | grep -E '1\.14\.1|0\.30\.4'
+done
+```
 
-**Implementation:** `scripts/env-scan.sh` — Phase 3-4
+env_scan mode only. Default root: `$HOME`.
+
+**Full implementation:** `scripts/env-scan.sh` — Phase 3-4
 
 ## I.5 Scanner: lockfile_integrity
 
-Runs `npm ci --dry-run` and counts integrity hashes to verify lockfile consistency.
+```bash
+npm ci --dry-run 2>&1 | tail -5        # check for errors
+grep -c '"integrity"' package-lock.json  # count hashes
+```
 
-**Implementation:** `scripts/project-scan.sh` — LF section
+**Full implementation:** `scripts/project-scan.sh` — LF section
 
 ## I.6 Responder: critical_cleanup
 
-Executes A.3.on_CRITICAL: network isolate → kill processes → remove persistence → clean npm → reinstall → rescan. **Every step requires explicit user confirmation (default: NO).**
+Sequence: net_isolate → kill_proc → rm_persist → rm_npm → reinstall → rescan.
 
-**Implementation:** `scripts/respond.sh --critical`
+**Every step requires explicit user confirmation before executing.** Key commands:
+
+```bash
+echo "127.0.0.1 sfrclak.com" | sudo tee -a /etc/hosts  # block C2
+pkill -f com.apple.act.mond                              # darwin
+rm -f ~/Library/LaunchAgents/com.apple.act.mond.plist    # darwin persist
+rm -rf node_modules package-lock.json && npm install     # clean reinstall
+```
+
+**Full implementation:** `scripts/respond.sh --critical`
 
 ## I.7 Responder: version_pin
 
-Adds `overrides` (npm) or `resolutions` (yarn) to package.json, pinning a compromised package to a safe version. Accepts any package name and version as arguments.
+```json
+{"overrides":{"<package>":"<safe_version>"}}
+```
 
-**Implementation:** `scripts/respond.sh --high <package> <safe_version>`
+yarn: `"resolutions"`. Accepts any package name and version.
+
+**Full implementation:** `scripts/respond.sh --high <package> <safe_version>`
 
 ## I.8 Responder: cicd_harden
 
-CI/CD hardening: `npm ci --ignore-scripts` (block postinstall), `yarn install --frozen-lockfile --ignore-scripts`.
+```bash
+npm ci --ignore-scripts     # block postinstall
+# npm ci already enforces lockfile integrity
+```
 
-**Implementation:** See README.md — CI/CD Integration section
+**Full implementation:** See README.md — CI/CD Integration section
 
 ---
 
