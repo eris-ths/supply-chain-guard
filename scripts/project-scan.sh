@@ -194,7 +194,7 @@ echo "─── G4: Postinstall Scripts ─────────────�
 if [ -d "node_modules" ]; then
   _SAFE_POSTINSTALL="node-gyp\|husky\|esbuild\|puppeteer\|sharp\|better-sqlite3\|bcrypt\|canvas\|grpc\|leveldown\|nodegit\|sqlite3\|electron"
   _SUSPICIOUS=$(find node_modules -maxdepth 2 -name "package.json" -exec grep -l '"postinstall"' {} \; 2>/dev/null | while read -r pj; do
-    _pkg=$(python3 -c "import json; print(json.load(open('$pj')).get('name','?'))" 2>/dev/null || echo "?")
+    _pkg=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('name','?'))" "$pj" 2>/dev/null || echo "?")
     if ! echo "$_pkg" | grep -qi "$_SAFE_POSTINSTALL"; then
       echo "  $_pkg ($pj)"
     fi
