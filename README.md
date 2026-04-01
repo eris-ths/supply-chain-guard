@@ -435,12 +435,7 @@ R.N → converge|continue
 
 ## Contributing
 
-Contributions welcome. If you discover a new supply chain threat:
-
-1. Add the threat to `SKILL.md` section `D.2 KnownThreats` following the template
-2. Update `I.3` (static list) and `I.4` (IOC paths) to match
-3. Update scanner scripts in `scripts/`
-4. Submit a PR with advisory references
+This repository does not accept pull requests. If you discover a new supply chain threat or have suggestions, please [open an Issue](https://github.com/eris-ths/supply-chain-guard/issues) with advisory references and details.
 
 ---
 
