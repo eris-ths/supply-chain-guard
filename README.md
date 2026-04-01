@@ -18,6 +18,8 @@ A Claude Code skill and standalone toolkit for defending JavaScript projects aga
 - [CI/CD Integration](#cicd-integration)
 - [Response Playbook](#response-playbook)
 - [IOC Reference](#ioc-reference)
+- [Disclaimer](#disclaimer)
+- [Limitations](#limitations)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -437,6 +439,67 @@ R.N → converge|continue
 | [Semgrep](https://semgrep.dev/blog/2026/axios-supply-chain-incident-indicators-of-compromise-and-how-to-contain-the-threat/) | Static analysis rules, containment guide |
 | [SOCRadar](https://socradar.io/blog/axios-npm-supply-chain-attack-2026-ciso-guide/) | CISO guide with IOC timeline |
 | [Wiz](https://wiz.io/blog/axios-npm-compromised-in-supply-chain-attack) | Cloud impact analysis, container scanning |
+
+---
+
+## Disclaimer
+
+**This software is provided "as-is" without warranty of any kind.** By using Supply Chain Guard, you acknowledge and agree to the following:
+
+- **Not a substitute for professional security.** SCG is a supplementary detection tool, not a comprehensive security solution. It does not replace professional incident response, endpoint detection and response (EDR) software, or security audits.
+- **No guarantee of detection.** A `CLEAR` verdict means no matches were found against the tool's known threat patterns. **It does not mean your system or project is free from compromise.** Novel, unknown, or modified attacks may not be detected.
+- **No guarantee of remediation.** The remediation steps provided (`respond.sh`) address known indicators of specific threats. They may not fully remove all traces of a sophisticated compromise. If you suspect active compromise, engage a professional incident response team.
+- **Use at your own risk.** The authors are not liable for any damages, data loss, or security incidents arising from the use or inability to use this tool. This includes but is not limited to: false negatives (missed detections), false positives (incorrect detections), or unintended consequences of running remediation scripts.
+- **Not legal or compliance advice.** This tool does not satisfy regulatory, compliance, or legal requirements for security scanning. Consult appropriate professionals for compliance needs.
+
+---
+
+## Limitations
+
+Understanding what SCG **cannot** do is as important as knowing what it can.
+
+### Detection Boundaries
+
+| What SCG checks | What SCG does NOT check |
+|-----------------|------------------------|
+| Known compromised package versions (hardcoded DB) | Zero-day supply chain attacks with no public advisory |
+| Known malicious package names | Typosquats not yet in the static list |
+| Specific IOC file paths for known threats | Arbitrary malware dropped to non-standard paths |
+| Specific C2 IP addresses and domains | C2 infrastructure that has been rotated or changed |
+| `postinstall` scripts in direct dependencies | Obfuscated malicious code within legitimate-looking scripts |
+
+### Threat Database Freshness
+
+The Known Threats database (`D.2` in SKILL.md) is **manually maintained**. It is not connected to any live threat feed. There is inherent latency between a new supply chain incident being discovered and this database being updated.
+
+- **Last updated:** 2026-04-01
+- **Coverage:** 3 threat families (T001-T003)
+
+Always cross-reference with live sources such as [npm advisories](https://github.com/advisories), [OSV.dev](https://osv.dev/), and vendor security blogs listed in the [References](#references) section.
+
+### False Positive Risk
+
+The following IOC paths may, in rare cases, conflict with legitimate software:
+
+| IOC Path | Potential False Positive |
+|----------|------------------------|
+| `/tmp/.npm-cache/` | Legitimate npm caching in non-standard configurations |
+| `/tmp/ld.py` | Unrelated Python scripts with the same filename |
+| Process name `wt.exe` | Legitimate Windows Terminal if located in ProgramData |
+
+**Always verify IOC findings before running remediation.** The `ioc-scan.sh` script reports findings for human review — it does not take any action. The `respond.sh` script requires explicit confirmation for every destructive action (default: NO) precisely because of this risk.
+
+### Network Scanning Limitations
+
+- `lsof`-based network checks only detect **currently active** connections. A C2 beacon that connects intermittently may not be active at scan time.
+- DNS cache checks are best-effort and OS-dependent. Cleared caches will not show historical connections.
+- Encrypted or tunneled C2 traffic cannot be detected by port/IP matching alone.
+
+### Scope
+
+- **npm/yarn only.** Does not cover pip, cargo, go modules, or other package ecosystems.
+- **Known threats only.** This is a pattern-matching tool, not a behavioral analysis engine.
+- **Point-in-time scan.** Results reflect the state at the moment of execution. Continuous monitoring requires repeated execution or integration with CI/CD.
 
 ---
 
