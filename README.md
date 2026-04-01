@@ -450,7 +450,7 @@ R.N → converge|continue
 
 ## Disclaimer
 
-SCG was built to help developers respond quickly when supply chain incidents hit. We want this tool to be genuinely useful — and part of being useful is being honest about what it can and cannot do.
+SCG is a detection tool, not a security guarantee. Being upfront about what it can and cannot do is part of the design.
 
 **This software is provided "as-is" without warranty of any kind.** By using Supply Chain Guard, you acknowledge and agree to the following:
 
