@@ -6,6 +6,9 @@
 # Covers: T001 (axios RAT), with extensible structure for future threats.
 # Cross-platform: macOS, Linux. For Windows, see ioc-scan.ps1.
 #
+# SAFETY: This script is READ-ONLY. It does not modify, delete, or install
+#         anything on your system. Safe to run at any time.
+#
 # Usage: ./ioc-scan.sh
 
 set -euo pipefail

@@ -102,15 +102,21 @@ Then invoke in Claude Code:
 ### As Standalone Scripts
 
 ```bash
-# Environment-wide scan (IOC + all projects)
+# Environment-wide scan (IOC + all projects)  [READ-ONLY]
 ./scripts/env-scan.sh
 
-# Project-specific scan (requires package.json in cwd)
+# Project-specific scan (requires package.json in cwd)  [READ-ONLY]
 ./scripts/project-scan.sh
 
-# IOC-only scan (filesystem + network artifacts)
+# IOC-only scan (filesystem + network artifacts)  [READ-ONLY]
 ./scripts/ioc-scan.sh
+
+# Remediation (interactive, every action requires confirmation)
+./scripts/respond.sh --critical   # Full RAT cleanup
+./scripts/respond.sh --high       # Pin to safe version
 ```
+
+> **Safety design:** All scan scripts are strictly read-only — they never modify, delete, or install anything. The remediation script (`respond.sh`) is the only script that performs destructive operations, and **every single action requires explicit `[y/N]` confirmation** with a default of NO.
 
 ---
 
@@ -247,6 +253,28 @@ IOC-only scan. Checks filesystem artifacts, running processes, and network conne
 ```bash
 ./scripts/ioc-scan.sh
 ```
+
+### `scripts/respond.sh`
+
+Interactive remediation. **Every destructive action requires `[y/N]` confirmation (default: NO).**
+
+```bash
+# CRITICAL: Full RAT cleanup (kill → remove → reinstall)
+./scripts/respond.sh --critical
+
+# HIGH: Pin compromised package to safe version
+./scripts/respond.sh --high
+```
+
+Steps in `--critical` mode:
+1. Network isolate (block C2 domain via `/etc/hosts`)
+2. Kill RAT processes
+3. Remove persistence (LaunchAgents / crontab / scheduled tasks)
+4. Delete `node_modules` and lockfile, clear npm cache
+5. Reinstall dependencies
+6. Prompt for verification scan
+
+Each step checks whether action is actually needed (e.g., skips "kill" if no RAT process is running) and shows exactly what will be executed before asking for confirmation.
 
 ---
 

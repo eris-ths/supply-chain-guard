@@ -2,6 +2,9 @@
 # Supply Chain Guard — Environment-wide scan
 # Scans all projects under a root directory for compromised packages
 # Usage: ./env-scan.sh [scan_root_dir]
+#
+# SAFETY: This script is READ-ONLY. It does not modify, delete, or install
+#         anything on your system. Safe to run at any time.
 
 set -euo pipefail
 

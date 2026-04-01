@@ -3,6 +3,9 @@
 # Runs all scanner layers against the current project.
 # Requires: package.json in current directory
 #
+# SAFETY: This script is READ-ONLY. It does not modify, delete, or install
+#         anything on your system. Safe to run at any time.
+#
 # Layers:
 #   L1: npm audit (registry vulnerabilities)
 #   L2: osv-scanner or OSV.dev API (Google OSV database)

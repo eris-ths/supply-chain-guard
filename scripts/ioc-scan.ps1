@@ -2,6 +2,9 @@
 # Checks filesystem artifacts, running processes, scheduled tasks,
 # and network connections against known supply chain attack indicators.
 #
+# SAFETY: This script is READ-ONLY. It does not modify, delete, or install
+#         anything on your system. Safe to run at any time.
+#
 # Usage: .\ioc-scan.ps1
 
 $ErrorActionPreference = "Stop"
