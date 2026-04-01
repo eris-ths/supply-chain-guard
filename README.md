@@ -41,19 +41,19 @@ On March 31, 2026, the widely-used `axios` npm package (v1.14.1 and v0.30.4) was
 SCG follows a **Domain-Driven Design (DDD)** architecture with three layers:
 
 ```
-┌─────────────────────────────────────────────────┐
-│  §D — Domain Layer                              │
-│  Threat models, known threats DB, severity       │
-│  matrix, Devil Gate definitions                  │
-├─────────────────────────────────────────────────┤
-│  §A — Application Layer                         │
-│  Use cases, scan pipeline, response protocols,   │
-│  Devil execution loop                            │
-├─────────────────────────────────────────────────┤
-│  §I — Infrastructure Layer                      │
-│  Scanner scripts (npm audit, OSV, static list,   │
-│  IOC filesystem, network, lockfile integrity)    │
-└─────────────────────────────────────────────────┘
++-----------------------------------------------------+
+|  Domain Layer                                        |
+|  Threat models, known threats DB, severity matrix,   |
+|  Devil Gate definitions                              |
++-----------------------------------------------------+
+|  Application Layer                                   |
+|  Use cases, scan pipeline, response protocols,       |
+|  Devil execution loop                                |
++-----------------------------------------------------+
+|  Infrastructure Layer                                |
+|  Scanner scripts (npm audit, OSV, static list,       |
+|  IOC filesystem, network, lockfile integrity)        |
++-----------------------------------------------------+
 ```
 
 ### Scan Pipeline
