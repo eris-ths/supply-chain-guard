@@ -256,7 +256,7 @@ S1: Dependency (G1+G2)
 
 ### `scripts/env-scan.sh`
 
-Full environment scan. Checks IOC artifacts, scans all lockfiles under `~/Develop` (configurable), and reports compromised packages.
+Full environment scan. Checks IOC artifacts, scans all lockfiles under `$HOME` (configurable), and reports compromised packages.
 
 ```bash
 ./scripts/env-scan.sh [scan_root_dir]
