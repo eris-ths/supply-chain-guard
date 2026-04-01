@@ -546,6 +546,7 @@ This repository does not accept pull requests. If you discover a new supply chai
 
 Verify that your copy of SCG has not been tampered with. Compare these SHA-256 checksums against your local files:
 
+<!-- CHECKSUMS-START -->
 ```
 67ac6216cbe18fdf7050fd267bce4157c016e5c60cd4f84f63b8cf71e80ae3b9  scripts/env-scan.sh
 cbf260276b8cf028ff582579c1edc8a8890078261e69c4b616070b0c720e7b08  scripts/project-scan.sh
@@ -554,6 +555,7 @@ cbf260276b8cf028ff582579c1edc8a8890078261e69c4b616070b0c720e7b08  scripts/projec
 72a067ff9f608b4fcc04c379a779b7be182165a833df36fe84420d7ab8150438  scripts/respond.sh
 2af237bc7ffd2080d1eb53636abd088b7ed2e927ccbed201f675c2c165044c29  SKILL.md
 ```
+<!-- CHECKSUMS-END -->
 
 To verify:
 
