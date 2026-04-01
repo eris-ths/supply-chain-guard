@@ -43,6 +43,9 @@ foreach ($path in $iocPaths) {
 Write-Host ""
 Write-Host "[proc] Checking running processes..."
 
+# NOTE: Legitimate Windows Terminal may also use the "wt" process name.
+# The ProgramData path filter reduces false positives, but edge cases exist
+# if Windows Terminal is installed to a non-standard ProgramData location.
 $wtProcs = Get-Process wt -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*ProgramData*" }
 if ($wtProcs) {
     Write-Host "  !!CRITICAL: Suspicious wt.exe running from ProgramData" -ForegroundColor Red

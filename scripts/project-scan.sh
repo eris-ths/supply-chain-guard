@@ -177,6 +177,8 @@ if [ -f "package-lock.json" ]; then
   _INTEGRITY_COUNT=$(grep -c '"integrity"' package-lock.json 2>/dev/null || echo "0")
   echo "  Integrity hashes: $_INTEGRITY_COUNT"
 
+  # NOTE: npm ci --dry-run may create temporary files depending on npm version.
+  # This is the closest thing to a read-only lockfile integrity check npm provides.
   if npm ci --dry-run 2>&1 | tail -3 | grep -qi "error\|ERR"; then
     echo "  !!LOW: lockfile integrity check failed"
     _EXIT_CODE=1

@@ -117,6 +117,9 @@ do_critical() {
       if crontab -l 2>/dev/null | grep -qi "ld.py\|npm-cache"; then
         echo "   Malicious cron entries found:"
         crontab -l | grep -i "ld.py\|npm-cache"
+        # NOTE: grep -v "npm-cache" could remove legitimate cron entries that
+        # happen to contain "npm-cache" in their command. Low risk since such
+        # entries are rare, and this step requires explicit user confirmation.
         if confirm "Remove malicious cron entries?"; then
           crontab -l | grep -v "ld.py\|npm-cache" | crontab -
           printf "   ${GREEN}Cleaned.${NC}\n"
