@@ -22,6 +22,7 @@ A Claude Code skill and standalone toolkit for defending npm/yarn projects again
 - [Disclaimer](#disclaimer)
 - [Limitations](#limitations)
 - [Contributing](#contributing)
+- [Integrity Verification](#integrity-verification)
 - [License](#license)
 
 ---
@@ -538,6 +539,29 @@ The following IOC paths may, in rare cases, conflict with legitimate software:
 ## Contributing
 
 This repository does not accept pull requests. If you discover a new supply chain threat or have suggestions, please [open an Issue](https://github.com/eris-ths/supply-chain-guard/issues) with advisory references and details.
+
+---
+
+## Integrity Verification
+
+Verify that your copy of SCG has not been tampered with. Compare these SHA-256 checksums against your local files:
+
+```
+67ac6216cbe18fdf7050fd267bce4157c016e5c60cd4f84f63b8cf71e80ae3b9  scripts/env-scan.sh
+cbf260276b8cf028ff582579c1edc8a8890078261e69c4b616070b0c720e7b08  scripts/project-scan.sh
+0c084824c180bc8cfac7daf596677eda7d5d1b0c5888f7600bf7272d22678b72  scripts/ioc-scan.sh
+6b7641f9b3dd252ccce49af93a811b04689cd021ff7a302878a39e0d607598f6  scripts/ioc-scan.ps1
+72a067ff9f608b4fcc04c379a779b7be182165a833df36fe84420d7ab8150438  scripts/respond.sh
+2af237bc7ffd2080d1eb53636abd088b7ed2e927ccbed201f675c2c165044c29  SKILL.md
+```
+
+To verify:
+
+```bash
+shasum -a 256 scripts/*.sh scripts/*.ps1 SKILL.md
+```
+
+> **Note:** These checksums correspond to the latest release. If you have modified any files locally, the checksums will differ. When SCG is updated, this section is updated alongside the code changes.
 
 ---
 
