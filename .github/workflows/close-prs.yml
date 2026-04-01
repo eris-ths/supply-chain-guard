@@ -10,7 +10,28 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-      - name: Close PR with comment
+      - name: Check if author is a collaborator
+        id: check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const author = context.payload.pull_request.user.login;
+            try {
+              const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                username: author,
+              });
+              const level = data.permission;
+              const isCollaborator = ['admin', 'write', 'maintain'].includes(level);
+              core.setOutput('is_collaborator', isCollaborator.toString());
+              console.log(`${author}: permission=${level}, collaborator=${isCollaborator}`);
+            } catch {
+              core.setOutput('is_collaborator', 'false');
+            }
+
+      - name: Close PR from non-collaborator
+        if: steps.check.outputs.is_collaborator == 'false'
         uses: actions/github-script@v7
         with:
           script: |
@@ -18,7 +39,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.payload.pull_request.number,
-              body: 'Thank you for your interest! This repository does not accept pull requests. Please [open an Issue](https://github.com/eris-ths/supply-chain-guard/issues) instead to report threats or suggest improvements.'
+              body: 'Thank you for your interest! This repository does not accept external pull requests. Please [open an Issue](https://github.com/eris-ths/supply-chain-guard/issues) instead to report threats or suggest improvements.'
             });
             await github.rest.pulls.update({
               owner: context.repo.owner,
