@@ -1,8 +1,18 @@
 # Supply Chain Guard (SCG)
 
-> **Detect, assess, and respond to npm/yarn supply chain attacks.**
+> **Detect, assess, and respond to supply chain attacks across npm/yarn and Python (pip/poetry/uv).**
 
-A Claude Code skill and standalone toolkit for defending npm/yarn projects against supply chain compromises. Built with real-world incident response in mind, including the [axios@1.14.1 RAT incident (2026-03-31)](https://elastic.co/security-labs/axios-one-rat-to-rule-them-all).
+A Claude Code skill and standalone toolkit for defending JavaScript and Python projects against supply chain compromises and CVE-flagged dependencies. Built with real-world incident response in mind, including:
+
+- **[axios@1.14.1 RAT incident (2026-03-31)](https://elastic.co/security-labs/axios-one-rat-to-rule-them-all)** — npm maintainer account takeover (UNC1069/DPRK-APT) injecting a phantom dependency RAT
+- **[Starlette BadHost (CVE-2026-48710, 2026-05-22)](https://cryptobriefing.com/starlette-badhost-vulnerability-ai-agents/)** — Python HTTP framework Host header path injection → SSRF/RCE, affecting FastAPI, vLLM, LiteLLM, and the broader AI agent ecosystem
+
+## What's new in v4 (2026-05-27)
+
+- **Python supply chain scan** — `scripts/project-scan-py.sh` with pip-audit / osv-scanner / CVE-flagged version detection
+- **CVE-flagged version layer (L3-CVE)** — track known vulnerable versions of legitimate packages with strict semver-spec evaluation (BadHost CVE-2026-48710 included out of the box)
+- **Design hygiene guideline** — stdio-first MCP transport, version pin discipline, GCP default compute SA editor hardening (see SKILL.md §D.7 DesignHygiene)
+- **Guild-CLI Devil lens integration** — invoke SCG as a Devil lens from guild-cli workflows (see "Guild-CLI Devil Integration" below)
 
 ---
 
@@ -132,8 +142,11 @@ Then invoke in Claude Code:
 # Environment-wide scan (IOC + all projects)  [READ-ONLY]
 ./scripts/env-scan.sh
 
-# Project-specific scan (requires package.json in cwd)  [READ-ONLY]
+# npm/yarn project scan (requires package.json in cwd)  [READ-ONLY]
 ./scripts/project-scan.sh
+
+# Python project scan (requires pyproject.toml / requirements*.txt / poetry.lock / uv.lock in cwd)  [READ-ONLY, added in v4]
+./scripts/project-scan-py.sh
 
 # IOC-only scan (filesystem + network artifacts)  [READ-ONLY]
 ./scripts/ioc-scan.sh
@@ -142,6 +155,8 @@ Then invoke in Claude Code:
 ./scripts/respond.sh --critical              # Full RAT cleanup
 ./scripts/respond.sh --high axios 1.14.0     # Pin to safe version
 ```
+
+For a polyglot repository (npm + Python), run both project scanners sequentially from the relevant subdirectories.
 
 > **Safety design:** All scan scripts are strictly read-only — they never modify, delete, or install anything. The remediation script (`respond.sh`) is the only script that performs destructive operations, and **every single action requires explicit `[y/N]` confirmation** with a default of NO.
 
@@ -470,6 +485,37 @@ R.N → converge|continue
 | [Semgrep](https://semgrep.dev/blog/2026/axios-supply-chain-incident-indicators-of-compromise-and-how-to-contain-the-threat/) | Static analysis rules, containment guide |
 | [SOCRadar](https://socradar.io/blog/axios-npm-supply-chain-attack-2026-ciso-guide/) | CISO guide with IOC timeline |
 | [Wiz](https://wiz.io/blog/axios-npm-compromised-in-supply-chain-attack) | Cloud impact analysis, container scanning |
+| [Starlette BadHost coverage (KuCoin)](https://kucoin.com/news/flash/starlette-vulnerability-exposes-millions-of-ai-agents-to-hackers) | CVE-2026-48710 secondary source (Python ecosystem impact, AI agents) |
+| [BadHost AI agent analysis (CryptoBriefing)](https://cryptobriefing.com/starlette-badhost-vulnerability-ai-agents/) | CVE-2026-48710 — FastAPI / vLLM / LiteLLM downstream impact |
+
+---
+
+## Guild-CLI Devil Integration
+
+If you use [guild-cli](https://github.com/eris-ths/guild-cli) (or any project that exposes a Devil lens workflow), SCG can be invoked as one of the security lenses during a review pass.
+
+### Recommended invocation pattern
+
+```bash
+# Inside a guild-cli review session, in the project root:
+~/path/to/supply-chain-guard/scripts/project-scan.sh       # for npm/yarn projects
+~/path/to/supply-chain-guard/scripts/project-scan-py.sh    # for Python projects
+
+# Or wire it as a Devil lens (one-liner):
+# When invoking gate review, attach SCG output as evidence:
+SCG_OUTPUT=$(~/path/to/supply-chain-guard/scripts/project-scan.sh 2>&1 || true)
+gate review --lense devil --area supply-chain --note "$SCG_OUTPUT"
+```
+
+### Why pair SCG with Devil
+
+Devil's Advocate ("壊しにいく") and SCG share the same posture: **assume the worst, scan systematically, then converge**. SCG provides the supply-chain dimension of a Devil pass — what the project's dependencies might be doing behind your back — alongside other lenses (security / correctness / architecture / user / operations).
+
+### Limitations of the Devil pairing
+
+- SCG runs read-only; the Devil lens won't push fixes. Use `respond.sh` separately when remediation is required (with explicit user confirmation)
+- SCG output may exceed Devil context budgets in large repos; pipe through `tail -50` if needed
+- For polyglot repos, run both `project-scan.sh` and `project-scan-py.sh` and merge findings
 
 ---
 
@@ -505,8 +551,9 @@ Understanding what SCG **cannot** do is as important as knowing what it can.
 
 The Known Threats database (`D.2` in SKILL.md) is **manually maintained**. It is not connected to any live threat feed. There is inherent latency between a new supply chain incident being discovered and this database being updated.
 
-- **Last updated:** 2026-04-01
-- **Coverage:** 3 threat families (T001-T003)
+- **Last updated:** 2026-05-27 (v4: Python support, BadHost CVE-2026-48710 added)
+- **Coverage:** 3 npm threat families (T001-T003) + 4 Python entries (hijacked + CVE-flagged)
+- **Python coverage scope (v4):** primarily lockfile-based scanning (uv.lock / poetry.lock / requirements.txt). The CVE-flagged version layer is **best-effort** — it only flags packages that match `_L3_CVE_LIST` entries with strict semver-spec evaluation, and depends on `packaging` being installed for accurate version matching
 
 Always cross-reference with live sources such as [npm advisories](https://github.com/advisories), [OSV.dev](https://osv.dev/), and vendor security blogs listed in the [References](#references) section.
 
@@ -553,7 +600,7 @@ cbf260276b8cf028ff582579c1edc8a8890078261e69c4b616070b0c720e7b08  scripts/projec
 0c084824c180bc8cfac7daf596677eda7d5d1b0c5888f7600bf7272d22678b72  scripts/ioc-scan.sh
 6b7641f9b3dd252ccce49af93a811b04689cd021ff7a302878a39e0d607598f6  scripts/ioc-scan.ps1
 72a067ff9f608b4fcc04c379a779b7be182165a833df36fe84420d7ab8150438  scripts/respond.sh
-2af237bc7ffd2080d1eb53636abd088b7ed2e927ccbed201f675c2c165044c29  SKILL.md
+d73400a14374756813142e32bb65e2a487070d581f99da9b3394ff7bc5ad4889  SKILL.md
 ```
 <!-- CHECKSUMS-END -->
 
