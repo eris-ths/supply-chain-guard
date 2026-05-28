@@ -31,7 +31,6 @@ A Claude Code skill and standalone toolkit for defending JavaScript and Python p
 - [IOC Reference](#ioc-reference)
 - [Disclaimer](#disclaimer)
 - [Limitations](#limitations)
-- [Contributing](#contributing)
 - [Integrity Verification](#integrity-verification)
 - [License](#license)
 
@@ -600,12 +599,6 @@ The following IOC paths may, in rare cases, conflict with legitimate software:
 - **npm/yarn and Python (pip/poetry/uv).** Does not cover cargo, go modules, or other package ecosystems.
 - **Known threats only.** This is a pattern-matching tool, not a behavioral analysis engine.
 - **Point-in-time scan.** Results reflect the state at the moment of execution. Continuous monitoring requires repeated execution or integration with CI/CD.
-
----
-
-## Contributing
-
-This repository does not accept pull requests. If you discover a new supply chain threat or have suggestions, please [open an Issue](https://github.com/eris-ths/supply-chain-guard/issues) with advisory references and details.
 
 ---
 
