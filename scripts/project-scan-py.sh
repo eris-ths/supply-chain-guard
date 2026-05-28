@@ -162,10 +162,19 @@ done
 
 if [ -n "$_L3_SEARCH_FILES" ]; then
   # Malicious / hijack check (block-worthy)
+  #
+  # Match three common shapes (unified with CVE-flagged version check pattern):
+  #   PEP 621 list:   `    "crossenv",`  or  `["crossenv"]`
+  #   Poetry inline:  `crossenv = "^1.0"`
+  #   requirements:   `crossenv==1.0`  (with optional leading whitespace)
+  #
+  # Trade-off: matches commented-out quotes like `# "crossenv" is bad`. For
+  # malicious packages this false-positive is acceptable (raises awareness
+  # rather than missing a real declaration).
   for entry in "${_L3_LIST[@]}"; do
     pkg="${entry%%|*}"
     rest="${entry#*|}"
-    if grep -qiE "^[\"']?${pkg}[\"']?[[:space:]=>~<\!]" $_L3_SEARCH_FILES 2>/dev/null \
+    if grep -qiE "(\"${pkg}([><=~!,\"[:space:]]|$))|(^[[:space:]]*${pkg}[[:space:]]*[=><~!])" $_L3_SEARCH_FILES 2>/dev/null \
        || grep -qiE "^name = \"${pkg}\"" $_L3_SEARCH_FILES 2>/dev/null; then
       echo "  !! MALICIOUS: $pkg — ${rest%%|*}"
       _L3_MAL_HITS=$((_L3_MAL_HITS + 1))
