@@ -552,7 +552,7 @@ Understanding what SCG **cannot** do is as important as knowing what it can.
 The Known Threats database (`D.2` in SKILL.md) is **manually maintained**. It is not connected to any live threat feed. There is inherent latency between a new supply chain incident being discovered and this database being updated.
 
 - **Last updated:** 2026-05-27 (v4: Python support, BadHost CVE-2026-48710 added)
-- **Coverage:** 3 npm threat families (T001-T003) + 4 Python entries (hijacked + CVE-flagged)
+- **Coverage:** 3 npm threat families (T001-T003) + 4 Python hijacked/typosquat entries + 1 Python CVE-flagged version entry (BadHost)
 - **Python coverage scope (v4):** primarily lockfile-based scanning (uv.lock / poetry.lock / requirements.txt). The CVE-flagged version layer is **best-effort** — it only flags packages that match `_L3_CVE_LIST` entries with strict semver-spec evaluation, and depends on `packaging` being installed for accurate version matching
 
 Always cross-reference with live sources such as [npm advisories](https://github.com/advisories), [OSV.dev](https://osv.dev/), and vendor security blogs listed in the [References](#references) section.
@@ -577,7 +577,7 @@ The following IOC paths may, in rare cases, conflict with legitimate software:
 
 ### Scope
 
-- **npm/yarn only.** Does not cover pip, cargo, go modules, or other package ecosystems.
+- **npm/yarn and Python (pip/poetry/uv).** Does not cover cargo, go modules, or other package ecosystems.
 - **Known threats only.** This is a pattern-matching tool, not a behavioral analysis engine.
 - **Point-in-time scan.** Results reflect the state at the moment of execution. Continuous monitoring requires repeated execution or integration with CI/CD.
 
@@ -597,6 +597,7 @@ Verify that your copy of SCG has not been tampered with. Compare these SHA-256 c
 ```
 67ac6216cbe18fdf7050fd267bce4157c016e5c60cd4f84f63b8cf71e80ae3b9  scripts/env-scan.sh
 cbf260276b8cf028ff582579c1edc8a8890078261e69c4b616070b0c720e7b08  scripts/project-scan.sh
+b8c6fe0427810980711d04a4a29821f5ca38f6344dd75d65fe9144391532567c  scripts/project-scan-py.sh
 0c084824c180bc8cfac7daf596677eda7d5d1b0c5888f7600bf7272d22678b72  scripts/ioc-scan.sh
 6b7641f9b3dd252ccce49af93a811b04689cd021ff7a302878a39e0d607598f6  scripts/ioc-scan.ps1
 72a067ff9f608b4fcc04c379a779b7be182165a833df36fe84420d7ab8150438  scripts/respond.sh
