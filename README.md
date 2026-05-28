@@ -502,8 +502,11 @@ R.N → converge|continue
 | [Semgrep](https://semgrep.dev/blog/2026/axios-supply-chain-incident-indicators-of-compromise-and-how-to-contain-the-threat/) | Static analysis rules, containment guide |
 | [SOCRadar](https://socradar.io/blog/axios-npm-supply-chain-attack-2026-ciso-guide/) | CISO guide with IOC timeline |
 | [Wiz](https://wiz.io/blog/axios-npm-compromised-in-supply-chain-attack) | Cloud impact analysis, container scanning |
-| [Starlette BadHost coverage (KuCoin)](https://kucoin.com/news/flash/starlette-vulnerability-exposes-millions-of-ai-agents-to-hackers) | CVE-2026-48710 secondary source (Python ecosystem impact, AI agents) |
-| [BadHost AI agent analysis (CryptoBriefing)](https://cryptobriefing.com/starlette-badhost-vulnerability-ai-agents/) | CVE-2026-48710 — FastAPI / vLLM / LiteLLM downstream impact |
+| [NVD CVE-2026-48710](https://nvd.nist.gov/vuln/detail/CVE-2026-48710) | **Primary** — NVD canonical entry (published 2026-05-26, CVSS 3.1 base 6.5 MEDIUM, AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N) |
+| [GHSA-86qp-5c8j-p5mr](https://github.com/Kludex/starlette/security/advisories/GHSA-86qp-5c8j-p5mr) | **Primary** — GitHub Security Advisory on `Kludex/starlette` (published 2026-05-21): "Missing Host header validation poisons request.url.path, bypassing path-based security checks" |
+| [Starlette v1.0.1 release notes](https://github.com/Kludex/starlette/releases/tag/1.0.1) | **Primary** — fix release (published 2026-05-21). Pin `starlette>=1.0.1` (and `fastapi>=0.119` for transitive resolution) |
+| [Starlette BadHost coverage (KuCoin)](https://kucoin.com/news/flash/starlette-vulnerability-exposes-millions-of-ai-agents-to-hackers) | Secondary — Python ecosystem impact, AI agents framing |
+| [BadHost AI agent analysis (CryptoBriefing)](https://cryptobriefing.com/starlette-badhost-vulnerability-ai-agents/) | Secondary — FastAPI / vLLM / LiteLLM downstream impact framing |
 
 ---
 
