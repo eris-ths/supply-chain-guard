@@ -151,7 +151,8 @@ _L3_CVE_LIST=(
   "starlette|<1.0.1|CVE-2026-48710|BadHost — HTTP Host header path injection → SSRF/RCE"
 )
 
-_L3_HITS=0
+_L3_MAL_HITS=0
+_L3_CVE_HITS=0
 
 # Combine pyproject deps + requirements + lock content for grep
 _L3_SEARCH_FILES=""
@@ -167,7 +168,7 @@ if [ -n "$_L3_SEARCH_FILES" ]; then
     if grep -qiE "^[\"']?${pkg}[\"']?[[:space:]=>~<\!]" $_L3_SEARCH_FILES 2>/dev/null \
        || grep -qiE "^name = \"${pkg}\"" $_L3_SEARCH_FILES 2>/dev/null; then
       echo "  !! MALICIOUS: $pkg — ${rest%%|*}"
-      _L3_HITS=$((_L3_HITS + 1))
+      _L3_MAL_HITS=$((_L3_MAL_HITS + 1))
     fi
   done
 
@@ -204,20 +205,46 @@ except Exception:
 " 2>/dev/null)
       if [ "$_vuln" = "1" ]; then
         echo "  !! CVE: $pkg@$_ver_in_lock matches $constraint — $cve — $desc"
-        _L3_HITS=$((_L3_HITS + 1))
+        _L3_CVE_HITS=$((_L3_CVE_HITS + 1))
       elif [ "$_vuln" = "0" ]; then
         echo "  ✓ safe: $pkg@$_ver_in_lock (not affected by $cve, fix applied)"
       else
         echo "  ⚠️ unable to evaluate $pkg@$_ver_in_lock vs $cve (install: pip install packaging)"
       fi
+    else
+      # No resolved version in any lockfile. If the package is declared in
+      # pyproject/requirements/Pipfile, warn that CVE cannot be evaluated
+      # from a constraint alone — user might assume "we're fine" silently.
+      # Match three common shapes:
+      #   PEP 621 list:   "starlette>=0.36"  or  "starlette"
+      #   Poetry inline:  starlette = ">=0.36"
+      #   requirements:   starlette>=0.36
+      _declared=0
+      for f in pyproject.toml requirements*.txt Pipfile; do
+        [ -f "$f" ] || continue
+        if grep -qiE "(\"${pkg}([><=~!,\"[:space:]]|$))|(^[[:space:]]*${pkg}[[:space:]]*[=><~!])" "$f" 2>/dev/null; then
+          _declared=1
+          break
+        fi
+      done
+      if [ "$_declared" = 1 ]; then
+        echo "  ⚠️  $pkg declared without lockfile — cannot evaluate $cve (run 'uv lock' or 'poetry lock' first)"
+      fi
     fi
   done
 
-  if [ $_L3_HITS -gt 0 ]; then
-    echo "[L3:static] FAIL ($_L3_HITS malicious package(s) detected)"
+  _L3_TOTAL=$((_L3_MAL_HITS + _L3_CVE_HITS))
+  if [ $_L3_TOTAL -gt 0 ]; then
+    _summary=""
+    [ $_L3_MAL_HITS -gt 0 ] && _summary="$_L3_MAL_HITS malicious package(s)"
+    if [ $_L3_CVE_HITS -gt 0 ]; then
+      [ -n "$_summary" ] && _summary="$_summary, "
+      _summary="${_summary}$_L3_CVE_HITS CVE-flagged version(s)"
+    fi
+    echo "[L3:static] FAIL ($_summary)"
     _EXIT_CODE=1
   else
-    echo "[L3:static] CLEAR (no malicious packages in known list)"
+    echo "[L3:static] CLEAR (no malicious packages or CVE-flagged versions in known list)"
   fi
 else
   echo "[L3:static] SKIP — no scannable files"
