@@ -95,21 +95,21 @@ SCG follows a **Domain-Driven Design (DDD)** architecture with three layers:
 
 ### Scan Pipeline
 
+The same 5-layer pipeline applies to both ecosystems with ecosystem-specific scanners at each layer:
+
 ```
-L1(npm audit) ──┐
-                ├─→ merge ─→ L2(OSV.dev) ──┐
-                │                           ├─→ merge ─→ L3(static list)
-                │                           │                    │
-                │                           │             IOC filesystem scan
-                │                           │                    │
-                │                           │             lockfile integrity
-                │                           │                    │
-                │                           │             assess(SeverityMatrix)
-                │                           │                    │
-                └───────────────────────────┘              ┌─────┴─────┐
-                                                           │  VERDICT  │
-                                                           └───────────┘
+L1 ──→ L2 ──→ L3 ──→ IOC ──→ LF ──→ assess(SeverityMatrix) ──→ VERDICT
 ```
+
+| Layer | npm/yarn (`project-scan.sh`) | Python (`project-scan-py.sh`) |
+|-------|------------------------------|-------------------------------|
+| **L1** | `npm audit` | `pip-audit` |
+| **L2** | `osv-scanner` / OSV.dev API | `osv-scanner` |
+| **L3** | Static list (malicious + typosquat) | Static list (malicious / typosquat + CVE-flagged versions) |
+| **IOC** | Filesystem + Network artifacts | Filesystem + Process artifacts (Python-flavored) |
+| **LF** | `npm ci --dry-run` + integrity count | Lockfile integrity (uv.lock / poetry.lock / requirements*.txt) |
+
+Both pipelines feed the same SeverityMatrix and Devil Gate Framework.
 
 ---
 
@@ -178,9 +178,9 @@ Scans your entire development machine for compromise indicators.
 
 **Triggers:** "this PC", "environment check", "machine-wide"
 
-### Project Scan (`project_scan`)
+### Project Scan — npm/yarn (`project_scan`)
 
-Deep scan of a single npm/yarn project.
+Deep scan of a single npm/yarn project. Run from a directory containing `package.json`.
 
 | Layer | Scanner | Description |
 |-------|---------|-------------|
@@ -191,6 +191,23 @@ Deep scan of a single npm/yarn project.
 | **LF** | Lockfile integrity | `npm ci --dry-run` + integrity hash count |
 
 **Triggers:** "this project", "npm audit", or `package.json` present in cwd
+
+### Project Scan — Python (`project_scan_py`, added in v4)
+
+Deep scan of a single Python project. Run from a directory containing `pyproject.toml`, `requirements*.txt`, `poetry.lock`, or `uv.lock`.
+
+| Layer | Scanner | Description |
+|-------|---------|-------------|
+| **L1** | `pip-audit` | Known vulnerabilities via PyPI Advisory DB (optional — SKIP if not installed; `pip install pip-audit` recommended) |
+| **L2** | `osv-scanner` | Google's Open Source Vulnerability database against `uv.lock` / `poetry.lock` / `requirements*.txt` (optional — SKIP if not installed) |
+| **L3-MAL** | Static malicious list (`_L3_LIST`) | Known hijacked / typosquat package names. Matches PEP 621 list, Poetry inline, and requirements-style declarations (see [PR #4](https://github.com/eris-ths/supply-chain-guard/pull/4)). FAIL on hit |
+| **L3-CVE** | Static CVE-flagged version list (`_L3_CVE_LIST`) | Known vulnerable versions of legitimate packages (e.g., `starlette<1.0.1` for [BadHost CVE-2026-48710](https://cryptobriefing.com/starlette-badhost-vulnerability-ai-agents/)). Strict semver-spec evaluation via Python's `packaging` library. FAIL on confirmed match. Warns if a package is declared but no lockfile is present (cannot evaluate version) |
+| **IOC** | Filesystem + Process | Python-flavored artifact check (rogue scripts, suspicious processes) |
+| **LF** | Lockfile integrity | Verifies `uv.lock` / `poetry.lock` / `requirements*.txt` parses cleanly and contains pinned versions |
+
+**Triggers:** "this project" with Python files present, or any of `pyproject.toml` / `requirements*.txt` / `poetry.lock` / `uv.lock` in cwd
+
+> **Dependencies note:** L1 (`pip-audit`) and L2 (`osv-scanner`) gracefully SKIP with a hint when their respective CLI is absent. L3 is the always-on layer and does not require any external tool, but accurate L3-CVE evaluation needs `pip install packaging`.
 
 ---
 
