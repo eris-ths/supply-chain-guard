@@ -13,6 +13,7 @@ README="$PROJECT_DIR/README.md"
 FILES=(
   scripts/env-scan.sh
   scripts/project-scan.sh
+  scripts/project-scan-py.sh
   scripts/ioc-scan.sh
   scripts/ioc-scan.ps1
   scripts/respond.sh
