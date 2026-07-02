@@ -1,8 +1,10 @@
 # Supply Chain Guard (SCG)
 
-> **Detect, assess, and respond to supply chain attacks across npm/yarn and Python (pip/poetry/uv).**
+> **An incident-response toolkit for npm/yarn and Python (pip/poetry/uv) supply chain attacks — free, local, dependency-free.**
 
-A Claude Code skill and standalone toolkit for defending JavaScript and Python projects against supply chain compromises and CVE-flagged dependencies. Built with real-world incident response in mind, including:
+SCG is **not** a scanning engine that competes with commercial tools on coverage. It is a Claude Code skill and standalone shell toolkit that does three things well: **(1)** gives you a fast, repeatable *first response* when a specific incident drops ("is my machine affected right now?"), **(2)** orchestrates existing OSS scanners (`npm audit`, `osv-scanner`, `pip-audit`) into one structured pass, and **(3)** documents hard-won *design-hygiene* lessons — especially for AI development environments — that generic scanners don't cover.
+
+It was built and hardened during real incidents, including:
 
 - **[axios@1.14.1 RAT incident (2026-03-31)](https://elastic.co/security-labs/axios-one-rat-to-rule-them-all)** — npm maintainer account takeover (UNC1069/DPRK-APT) injecting a phantom dependency RAT
 - **[Starlette BadHost (CVE-2026-48710, 2026-05-22)](https://cryptobriefing.com/starlette-badhost-vulnerability-ai-agents/)** — Python HTTP framework Host header path injection → SSRF/RCE, affecting FastAPI, vLLM, LiteLLM, and the broader AI agent ecosystem
@@ -20,6 +22,7 @@ A Claude Code skill and standalone toolkit for defending JavaScript and Python p
 
 - [Why This Exists](#why-this-exists)
 - [How SCG Differs from Existing Tools](#how-scg-differs-from-existing-tools)
+- [What SCG Is (and Isn't)](#what-scg-is-and-isnt)
 - [Architecture](#architecture)
 - [Quick Start](#quick-start)
 - [Scan Modes](#scan-modes)
@@ -69,6 +72,33 @@ SCG is not a replacement for existing security tools. It combines multiple detec
 - You need continuous real-time monitoring → Snyk, Socket.dev
 - You need license compliance scanning → Snyk, FOSSA
 - You need coverage beyond npm/yarn → osv-scanner (supports pip, cargo, go, etc.)
+
+---
+
+## What SCG Is (and Isn't)
+
+We'd rather be honest about the boundaries than oversell. SCG is three things:
+
+1. **An incident-response playbook, as code.** When a named incident drops (axios RAT, Shai-Hulud, a fresh CVE), SCG turns "am I affected, and if so what do I do?" into an executable checklist — 8 verification gates, a severity matrix, and a remediation script where *every* destructive action needs explicit `[y/N]` confirmation. This is its primary value: the fast, structured *first response* that commercial monitoring tools aren't shaped for.
+
+2. **An orchestrator of existing OSS scanners.** The L1/L2 layers wrap `npm audit` / `pip-audit` / `osv-scanner`. Most of the raw detection power is borrowed; SCG's contribution is bundling them into one pass, adding filesystem/IOC checks the registry tools don't do, and making the output readable and actionable.
+
+3. **Documentation of real design-hygiene lessons** (SKILL.md §D.7) — things we actually hit or investigated: MCP transport choice, GCP default-SA hardening, install-time execution vectors, and threats that target AI dev tooling (Shai-Hulud reading `.claude/settings.json`, SANDWORM_MODE poisoning MCP configs). This niche — supply-chain hygiene for AI-assisted development — is where SCG is genuinely differentiated.
+
+### What SCG is deliberately NOT
+
+- **Not a coverage competitor.** The threat database (`SKILL.md` D.2, the L3 static lists) is **hand-maintained** — it holds the incidents we've read about, not the tens of thousands of malicious packages a live commercial feed tracks. A hand-curated list *cannot* keep pace with the real rate of new threats, and we don't pretend it does.
+- **Not a behavioral analysis engine.** SCG matches known patterns. Obfuscated payloads and true zero-days with no public advisory are out of scope by construction.
+- **Not continuous monitoring.** It's a point-in-time check you run during an incident or as a periodic sweep — not a service watching your dependency graph.
+
+### Where SCG is headed
+
+Because a hand-curated database can't win on coverage, we're intentionally investing where SCG is *hard to replace* rather than where it will always lose:
+
+- **Deeper incident-response playbooks** (#1) — better first-response ergonomics, more incident templates.
+- **AI-development-environment hygiene** (#3) — detection and guidance for threats aimed at Claude Code / Cursor / MCP servers and similar tooling, which commercial supply-chain scanners largely don't address.
+
+The static threat DB (#2) will keep getting updated when notable incidents land, but it is explicitly **not** the direction we're trying to compete on.
 
 ---
 
