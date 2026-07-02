@@ -610,7 +610,7 @@ Verify that your copy of SCG has not been tampered with. Compare these SHA-256 c
 ```
 67ac6216cbe18fdf7050fd267bce4157c016e5c60cd4f84f63b8cf71e80ae3b9  scripts/env-scan.sh
 cbf260276b8cf028ff582579c1edc8a8890078261e69c4b616070b0c720e7b08  scripts/project-scan.sh
-b8c6fe0427810980711d04a4a29821f5ca38f6344dd75d65fe9144391532567c  scripts/project-scan-py.sh
+54e7961d6a6d82e01b003fd932ce693175fd30565f0f96d304edf547b1a20dcc  scripts/project-scan-py.sh
 0c084824c180bc8cfac7daf596677eda7d5d1b0c5888f7600bf7272d22678b72  scripts/ioc-scan.sh
 6b7641f9b3dd252ccce49af93a811b04689cd021ff7a302878a39e0d607598f6  scripts/ioc-scan.ps1
 72a067ff9f608b4fcc04c379a779b7be182165a833df36fe84420d7ab8150438  scripts/respond.sh
