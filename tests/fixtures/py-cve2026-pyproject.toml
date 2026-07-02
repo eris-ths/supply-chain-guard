@@ -1,0 +1,4 @@
+[project]
+name = "cve2026-test"
+version = "0.1.0"
+dependencies = ["lightning", "urllib3"]

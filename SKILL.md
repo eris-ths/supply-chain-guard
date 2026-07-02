@@ -92,6 +92,48 @@ T003_typosquat:
   pkg: [crossenv, loadsh, crypto-js-esm]
   vec: "name_similarity→postinstall_exfil"
 
+T004_shai_hulud:
+  d: "2025-09 / 2025-11 (2.0) / 2026-06 (ongoing waves)"
+  pkg: ["@ctrl/tinycolor", ngx-bootstrap, ng2-file-upload, "@redhat-cloud-services/*", "@antv/*"]  # legit pkgs, specific versions only — verify version before acting
+  vec: "self-replicating worm: pre/postinstall payload rewrites local packages + repacks tgz → propagates"
+  mal_files: [setup_bun.js, bun_environment.js, "bundle.js(obfuscated)"]
+  gha: ["shai-hulud-workflow.yml", discussion.yaml]   # dropped into .github/workflows/
+  exfil: ["webhook.site/bb8ca5f6-4175-45d2-b042-fc9ebb8170b7", "GitHub repo desc: 'Sha1-Hulud: The Second Coming'"]
+  sha256: [46faab8ab153fae6e80e7cca38eab363075bb524edd79e42269217a083628f09,
+           62ee164b9b306250c1172583f138c9614139264f889fa99614903c12755468d0,
+           a3894003ad1d293ba96d77881ccd2071446dc3f65f434669b49b3da92421901a]
+  steals: [.npmrc, .ssh, "GitHub PAT", "AWS/GCP/Azure keys", "CI/CD secrets"]
+  tid: [unit42-npm-supply-chain-attack]
+  note: "AI-dev-tooling targeted: reads .claude/settings.json, .vscode/tasks.json. /tmp/kitty- daemon."
+
+T005_tanstack_minishaihulud:
+  d: "2026-05-11"
+  pkg: ["@tanstack/react-router@1.169.5", "@tanstack/react-router@1.169.6", "@tanstack/react-router@1.169.7", "@tanstack/react-router@1.169.8"]  # 42 pkgs / 84 bad versions
+  vec: "GitHub Actions pull_request_target Pwn Request → cache poisoning → OIDC token exfil"
+  tid: [GHSA-g7cv-rxg3-hmpx, CVE-2026-45321]
+  attr: "TeamPCP"
+
+T006_mastra_easyday:
+  d: "2026-06-17"
+  pkg: ["@mastra/*"]  # 140+ pkgs
+  mal: [easy-day-js]  # dayjs typosquat, hidden in ^1.11.21 caret range; 1.11.22 has postinstall dropper `node setup.cjs`
+  vec: "forgotten-contributor account takeover → typosquat dropper in caret range"
+  tid: [SNYK-JS-EASYDAYJS-17353313]
+
+T007_nodegyp_phantomgyp:
+  d: "2026-06-03"
+  pkg: ["@vapi-ai/server-sdk", ai-sdk-ollama]  # 57 pkgs
+  vec: "binding.gyp `<!(node index.js)` command-expansion abuse — runs at install WITHOUT postinstall/preinstall hook. npm+RubyGems cross-ecosystem self-propagation"
+  note: "NEW VECTOR: hook-only monitoring misses this. See D.7 install-vector hygiene."
+
+T008_sandworm_mode:
+  d: "2026-02-20"
+  pkg: [suport-color@1.0.1, claud-code@0.2.1, cloude@0.3.0, opencraw@2026.2.17]  # 19 pkgs, publisher alias official334/javaorg
+  vec: "AI toolchain poisoning: malicious MCP server registered as innocuous tools (index_project/lint_check/scan_dependencies) with prompt injection in tool defs"
+  targets_cfg: ["~/.claude/settings.json", "~/.cursor/mcp.json", "~/.continue/config.json", "~/.windsurf/mcp.json"]
+  steals: ["~/.ssh/id_rsa", "~/.aws/credentials", .npmrc, .env]
+  tid: [socket-sandworm-mode]
+
 # ─── Maintenance ───
 maintenance:
   principle: "KnownThreats freshness is critical. Do not let it go stale."
@@ -238,6 +280,31 @@ gcp_default_compute_sa_editor:
         | xargs -I{} echo "$proj: default SA has editor"
     done
 
+# ─── Added 2026-07: lessons from Shai-Hulud, node-gyp Phantom Gyp, SANDWORM_MODE, slopsquatting ───
+
+install_vector_hygiene:
+  problem: "Most tooling watches only `postinstall`/`preinstall` npm hooks. The node-gyp 'Phantom Gyp' worm (2026-06) runs code at install time via `binding.gyp` command-expansion `<!(node index.js)` — no npm hook at all. Hook-only monitoring is blind to it."
+  principle: "Treat the entire install phase as untrusted execution, not just lifecycle hooks. Any file the package manager evaluates at install (binding.gyp, setup.py, build backends, .pth files for Python) is an execution vector."
+  steps:
+    - "Prefer `npm ci --ignore-scripts` / `pip install --no-build-isolation` in CI where feasible, then run builds in a sandboxed step"
+    - "Audit binding.gyp for `<!(...)` command substitution and setup.py for network/exec calls before first install of an unknown package"
+    - "Python: watch for `.pth` files in site-packages — they run at every interpreter startup (LiteLLM 1.82.8 abused this)"
+
+mcp_tool_definitions_are_code:
+  problem: "SANDWORM_MODE (2026-02) shipped a malicious MCP server whose tools were named index_project / lint_check / scan_dependencies — innocuous-sounding — with prompt injection embedded in the tool *definitions* themselves, targeting Claude Code / Cursor / Continue / Windsurf to read ~/.ssh, ~/.aws, .npmrc, .env."
+  principle: "A tool's harmless name is NOT evidence of trust. MCP server tool definitions (descriptions, parameter docs) are executed context for the agent — review them like code before installing an MCP server."
+  steps:
+    - "Before adding an MCP server, read its tool definitions; treat instructions inside descriptions as potential injection"
+    - "Scan AI-tool configs (~/.claude/settings.json, ~/.cursor/mcp.json, ~/.continue/config.json, ~/.windsurf/mcp.json) for MCP servers you did not intentionally install (ioc-scan.sh T008 does this)"
+    - "Prefer MCP servers pinned to a reviewed version/commit, not floating latest"
+
+slopsquat_discipline:
+  problem: "LLM-generated code hallucinates package names that don't exist; ~19.7% of samples across 16 models in the USENIX Security 2025 study contained hallucinated packages (205k+ fabricated names). Attackers pre-register these names (slopsquatting), e.g. `unused-imports` (npm, real is eslint-plugin-unused-imports)."
+  principle: "A package name suggested by an LLM is unverified until checked against the registry. Do not `npm install` / `pip install` a name just because a model produced it."
+  steps:
+    - "For any unfamiliar dependency an assistant proposes, check the registry: creation date (brand-new = suspicious), download counts, repository link, maintainer history"
+    - "Be extra wary of names that are near-misses of popular packages (levenshtein-close) — that's the whole slopsquat attack surface"
+
 ```
 
 ---
@@ -257,6 +324,16 @@ refs:
   - {k: badhost_kucoin,    u: "kucoin.com/news/flash/starlette-vulnerability-exposes-millions-of-ai-agents-to-hackers",   n: "BadHost CVE-2026-48710 — Starlette <1.0.1 (2026-05-22)"}
   - {k: badhost_briefing,  u: "cryptobriefing.com/starlette-badhost-vulnerability-ai-agents/",                              n: "BadHost — AI agent impact analysis"}
   - {k: mcp_transport,     u: "github.com/modelcontextprotocol/python-sdk",                                                 n: "MCP SDK — stdio vs HTTP/SSE transport choice"}
+  # ─── 2026 threat refs (primary sources preferred; secondary marked) ───
+  - {k: shai_hulud_unit42,   u: "unit42.paloaltonetworks.com/npm-supply-chain-attack/",                          n: "Shai-Hulud/2.0 worm — IOCs, SHA256, file paths (Unit42 primary)"}
+  - {k: tanstack_ghsa,       u: "github.com/advisories/GHSA-g7cv-rxg3-hmpx",                                      n: "TanStack Mini-Shai-Hulud CVE-2026-45321 (GHSA primary)"}
+  - {k: pytorch_lightning,   u: "github.com/Lightning-AI/pytorch-lightning/security/advisories/GHSA-w37p-236h-pfx3", n: "PyTorch Lightning 2.6.2/2.6.3 compromise CVE-2026-44484 (GHSA primary)"}
+  - {k: mastra_mstic,        u: "microsoft.com/en-us/security/blog/2026/06/17/postinstall-payload-inside-mastra-npm-supply-chain-compromise/", n: "Mastra easy-day-js dropper (MSTIC primary)"}
+  - {k: nodegyp_snyk,        u: "snyk.io/blog/node-gyp-supply-chain-compromise-self-propagating-npm-worm-binding-gyp/", n: "node-gyp Phantom Gyp — binding.gyp install vector (Snyk primary)"}
+  - {k: sandworm_socket,     u: "socket.dev/blog/sandworm-mode-npm-worm-ai-toolchain-poisoning",                 n: "SANDWORM_MODE — malicious MCP server, AI toolchain (Socket primary)"}
+  - {k: litellm_ghsa,        u: "advisories.gitlab.com/pypi/litellm/GHSA-5mg7-485q-xm76/",                       n: "LiteLLM 1.82.7/1.82.8 compromise (GHSA via GitLab mirror — secondary)"}
+  - {k: urllib3_ghsa,        u: "github.com/advisories/GHSA-38jv-5279-wg99",                                     n: "urllib3 CVE-2026-21441 decompression-bomb DoS (GHSA primary)"}
+  - {k: slopsquat_usenix,    u: "arxiv.org/pdf/2605.17062",                                                      n: "Slopsquatting — LLM hallucinated packages, USENIX Security 2025 (primary study)"}
 ```
 
 ---

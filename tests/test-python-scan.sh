@@ -133,6 +133,33 @@ else
   pass "pip-audit installed — offline-degradation path not exercised (informational)"
 fi
 
+# ─── Test 7: 2026 CVE-flagged packages are detected ───
+# lightning 2.6.2 (compromised release, CVE-2026-44484) and urllib3 2.5.0
+# (CVE-2026-21441 + CVE-2026-44431) must all be flagged. urllib3 has two
+# distinct CVE entries → verifies multiple entries per package are evaluated
+# independently.
+run_scan "py-cve2026-pyproject.toml:pyproject.toml" "py-cve2026-uv.lock:uv.lock"
+
+if echo "$SCAN_OUTPUT" | grep -qE '!! CVE: lightning@2\.6\.2.*CVE-2026-44484'; then
+  pass "Detects compromised lightning@2.6.2 (CVE-2026-44484)"
+else
+  fail "Did not flag lightning@2.6.2"
+  echo "    Output: $SCAN_OUTPUT"
+fi
+
+if [ "$(echo "$SCAN_OUTPUT" | grep -cE '!! CVE: urllib3@2\.5\.0')" -eq 2 ]; then
+  pass "urllib3@2.5.0 flagged by both CVE entries (independent per-entry eval)"
+else
+  fail "urllib3@2.5.0 not flagged by both CVE-2026-21441 and CVE-2026-44431"
+  echo "    Output: $SCAN_OUTPUT"
+fi
+
+if [ "$SCAN_EXIT" -ne 0 ]; then
+  pass "Non-zero exit code when 2026 CVE-flagged versions present ($SCAN_EXIT)"
+else
+  fail "Exit code should be non-zero on 2026 CVE detection (got 0)"
+fi
+
 # ─── Results ───
 echo ""
 echo "Results: $PASSED passed, $FAILED failed"
