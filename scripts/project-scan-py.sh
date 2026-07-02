@@ -214,14 +214,59 @@ if [ -n "$_L3_SEARCH_FILES" ]; then
     done
 
     if [ -n "$_ver_in_lock" ]; then
-      # Strict evaluation: only flag when actually matching the vulnerable constraint
+      # Strict evaluation: only flag when actually matching the vulnerable constraint.
+      # Prefer `packaging` (full PEP 440) when available, but fall back to a
+      # stdlib-only comparator so the CVE layer works on a bare python3 with no
+      # site-packages (SCG is dependency-free — a missing `packaging` must NOT
+      # silently drop CVE detection, which is a fail-open for a security tool).
       _vuln=$(python3 -c "
+ver = '$_ver_in_lock'
+spec = '$constraint'
 try:
     from packaging.specifiers import SpecifierSet
     from packaging.version import Version
-    print('1' if Version('$_ver_in_lock') in SpecifierSet('$constraint') else '0')
+    print('1' if Version(ver) in SpecifierSet(spec) else '0')
 except ImportError:
-    print('?')
+    # Fallback: numeric tuple comparison. Handles the operators SCG uses
+    # (< <= == >= >) and comma-joined constraints (AND). Good enough for the
+    # dotted numeric versions in the CVE list; non-numeric labels degrade to '?'.
+    import re
+    def parse(v):
+        out = []
+        for p in re.split(r'[.+-]', v):
+            if p.isdigit():
+                out.append(int(p))
+            else:
+                return None  # pre/dev/local label — can't safely compare
+        return tuple(out)
+    def pad(a, b):
+        n = max(len(a), len(b))
+        return a + (0,) * (n - len(a)), b + (0,) * (n - len(b))
+    try:
+        pv = parse(ver)
+        if pv is None:
+            print('?')
+        else:
+            ok = True
+            for clause in spec.split(','):
+                m = re.match(r'(<=|>=|==|<|>|=)\s*(.+)', clause.strip())
+                if not m:
+                    ok = None; break
+                op, rv = m.group(1), parse(m.group(2).strip())
+                if rv is None:
+                    ok = None; break
+                a, b = pad(pv, rv)
+                if   op in ('==', '='): res = a == b
+                elif op == '<':  res = a <  b
+                elif op == '<=': res = a <= b
+                elif op == '>':  res = a >  b
+                elif op == '>=': res = a >= b
+                else: res = False
+                if not res:
+                    ok = False; break
+            print('1' if ok is True else ('?' if ok is None else '0'))
+    except Exception:
+        print('?')
 except Exception:
     print('?')
 " 2>/dev/null)
