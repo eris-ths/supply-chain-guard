@@ -653,7 +653,7 @@ Verify that your copy of SCG has not been tampered with. Compare these SHA-256 c
 da01f8362563b55b1553f923a748f07d24f24522366e0545e6ba0c09801f8e54  scripts/project-scan.sh
 77e7ebba6d44ea020e511a49bc2cbc974d01495de40d35e8dfb7fcc93008954b  scripts/project-scan-py.sh
 82aaa4ed898ce354addc064ccf84cca9a498ef4e90fe58613e1110146577609f  scripts/ioc-scan.sh
-6b7641f9b3dd252ccce49af93a811b04689cd021ff7a302878a39e0d607598f6  scripts/ioc-scan.ps1
+72ed333838b5584c3b1faf889edc81b0e3195c27396c3b36c62aaebf5f952117  scripts/ioc-scan.ps1
 72a067ff9f608b4fcc04c379a779b7be182165a833df36fe84420d7ab8150438  scripts/respond.sh
 a44be79d909058c9d216e7cbc5cca736cf8816a492c8d35a6b90c74c042abf5b  SKILL.md
 ```

@@ -42,3 +42,37 @@ jobs:
             exit 1
           fi
           echo "Checksums up to date."
+
+  # Windows scanner cannot run the bash suite (no lsof/pgrep), so we verify the
+  # PowerShell IOC scanner separately: it must parse and run clean-exit 0 on a
+  # clean runner. This is the Windows analogue of the clean-machine no-FP test —
+  # it guards against the class of bug where set/pipefail-style aborts make a
+  # clean project report CRITICAL (the sh side of this is in test-ioc-2026-threats).
+  windows-ps1:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse-check ioc-scan.ps1 (syntax must be valid)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $tokens = $null; $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            "scripts/ioc-scan.ps1", [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Host "::error::$_" }
+            exit 1
+          }
+          Write-Host "ioc-scan.ps1 parses clean."
+
+      - name: Run ioc-scan.ps1 on clean runner (must exit 0, no false positive)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          ./scripts/ioc-scan.ps1
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::ioc-scan.ps1 reported CRITICAL on a clean runner (false positive)"
+            exit 1
+          }
+          Write-Host "ioc-scan.ps1 clean-exit 0 on clean runner."
