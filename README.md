@@ -14,7 +14,7 @@ It was built and hardened during real incidents, including:
 - **Python supply chain scan** — `scripts/project-scan-py.sh` with pip-audit / osv-scanner / CVE-flagged version detection
 - **CVE-flagged version layer (L3-CVE)** — track known vulnerable versions of legitimate packages with strict semver-spec evaluation (BadHost CVE-2026-48710 included out of the box)
 - **Design hygiene guideline** — stdio-first MCP transport, version pin discipline, GCP default compute SA editor hardening (see SKILL.md §D.7 DesignHygiene)
-- **Guild-CLI Devil lens integration** — invoke SCG as a Devil lens from guild-cli workflows (see "Guild-CLI Devil Integration" below)
+- **Guild-CLI Devil lense integration** — invoke SCG as a Devil lense from guild-cli workflows (see "Guild-CLI Devil Integration" below)
 
 ---
 
@@ -541,7 +541,7 @@ R.N → converge|continue
 
 ## Guild-CLI Devil Integration
 
-If you use [guild-cli](https://github.com/eris-ths/guild-cli) (or any project that exposes a Devil lens workflow), SCG can be invoked as one of the security lenses during a review pass.
+If you use [guild-cli](https://github.com/eris-ths/guild-cli) (or any project that exposes a Devil lense workflow), SCG can be invoked as one of the security lenses during a review pass.
 
 ### Recommended invocation pattern
 
@@ -550,11 +550,22 @@ If you use [guild-cli](https://github.com/eris-ths/guild-cli) (or any project th
 ~/path/to/supply-chain-guard/scripts/project-scan.sh       # for npm/yarn projects
 ~/path/to/supply-chain-guard/scripts/project-scan-py.sh    # for Python projects
 
-# Or wire it as a Devil lens (one-liner):
-# When invoking gate review, attach SCG output as evidence:
+# Capture the scan output as evidence for a judgment:
 SCG_OUTPUT=$(~/path/to/supply-chain-guard/scripts/project-scan.sh 2>&1 || true)
-gate review --lense devil --area supply-chain --note "$SCG_OUTPUT"
+
+# (a) Record it as a new judgment (fast-track — no prior review needed):
+gate fast-track --from "$USER" \
+  --action "SCG supply-chain scan (Devil lense)" \
+  --reason "$SCG_OUTPUT"
+
+# (b) Or attach it as the Devil lense on an existing review request <id>:
+gate review <id> --lense devil --verdict concern --note "$SCG_OUTPUT"
 ```
+
+> Flag notes (verified against guild-cli): `gate review` **requires** an
+> existing `<id>`, `--lense` (guild-cli spells it "lense"), and `--verdict`
+> (`ok` / `concern` / `reject`). It has no `--area` flag. To log a fresh
+> finding with no prior review object, use `gate fast-track` as in (a).
 
 ### Why pair SCG with Devil
 
@@ -562,7 +573,7 @@ Devil's Advocate ("壊しにいく") and SCG share the same posture: **assume th
 
 ### Limitations of the Devil pairing
 
-- SCG runs read-only; the Devil lens won't push fixes. Use `respond.sh` separately when remediation is required (with explicit user confirmation)
+- SCG runs read-only; the Devil lense won't push fixes. Use `respond.sh` separately when remediation is required (with explicit user confirmation)
 - SCG output may exceed Devil context budgets in large repos; pipe through `tail -50` if needed
 - For polyglot repos, run both `project-scan.sh` and `project-scan-py.sh` and merge findings
 
