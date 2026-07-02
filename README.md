@@ -577,7 +577,8 @@ The following IOC paths may, in rare cases, conflict with legitimate software:
 
 ### Scope
 
-- **npm/yarn only.** Does not cover pip, cargo, go modules, or other package ecosystems.
+- **npm/yarn and Python (pip/poetry/uv).** Does not cover cargo, go modules, or other package ecosystems. Python scanning is lockfile/manifest-based (see "Python coverage scope" above).
+- **Optional network scanners degrade to SKIP, not failure.** `pip-audit` (L1) and `osv-scanner` (L2) are recommended but optional. When absent, those layers print an explicit `SKIP` notice and the scan continues with the offline layers (L3 static list, IOC, lockfile integrity). Absence never silently masks an L3/IOC hit — but it does mean registry-side advisories (L1/L2) go unchecked, so install them for full coverage.
 - **Known threats only.** This is a pattern-matching tool, not a behavioral analysis engine.
 - **Point-in-time scan.** Results reflect the state at the moment of execution. Continuous monitoring requires repeated execution or integration with CI/CD.
 
@@ -597,6 +598,7 @@ Verify that your copy of SCG has not been tampered with. Compare these SHA-256 c
 ```
 67ac6216cbe18fdf7050fd267bce4157c016e5c60cd4f84f63b8cf71e80ae3b9  scripts/env-scan.sh
 cbf260276b8cf028ff582579c1edc8a8890078261e69c4b616070b0c720e7b08  scripts/project-scan.sh
+ee39cd629b7662a6bbf2a8732e4e963c9c88e3ee35cbff38056d06565f01a124  scripts/project-scan-py.sh
 0c084824c180bc8cfac7daf596677eda7d5d1b0c5888f7600bf7272d22678b72  scripts/ioc-scan.sh
 6b7641f9b3dd252ccce49af93a811b04689cd021ff7a302878a39e0d607598f6  scripts/ioc-scan.ps1
 72a067ff9f608b4fcc04c379a779b7be182165a833df36fe84420d7ab8150438  scripts/respond.sh

@@ -245,8 +245,12 @@ for p in "${_IOC_PATHS[@]}"; do
 done
 
 # Suspicious running Python processes (loose heuristic, manual verify recommended)
+# Note: pgrep exits 1 when there is NO match. Under `set -o pipefail` that non-zero
+# status propagates through the pipe and, with `set -e`, would abort the whole scan
+# on a *clean* machine — the worst kind of false positive for a security tool.
+# `|| true` makes "no suspicious process" the healthy, non-fatal path.
 if command -v pgrep &>/dev/null; then
-  _susp=$(pgrep -f "python.* /tmp/" 2>/dev/null | head -3)
+  _susp=$(pgrep -f "python.* /tmp/" 2>/dev/null | head -3 || true)
   if [ -n "$_susp" ]; then
     echo "  ⚠️  Python process from /tmp/ detected (PIDs: $_susp) — manual investigation recommended"
     _IOC_HITS=$((_IOC_HITS + 1))
