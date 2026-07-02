@@ -145,6 +145,28 @@ do_critical() {
   fi
   echo ""
 
+  # Step 4b: Clean Python (conservative — guide, don't auto-rebuild)
+  # We only auto-run the safe, non-destructive `pip cache purge`. Deleting and
+  # recreating a virtualenv is shown as manual steps: which venv tool + Python
+  # version to use is project-specific, and getting it wrong strands the user.
+  if [ -f "pyproject.toml" ] || [ -f "requirements.txt" ] || [ -f "uv.lock" ] || [ -f "poetry.lock" ]; then
+    echo "─── Step 4b/6: Clean Python (guided) ───────"
+    if command -v pip >/dev/null 2>&1; then
+      run_destructive "Purge pip's download cache (safe, non-destructive)?" \
+        pip cache purge
+    fi
+    echo "   To rebuild your environment from a clean state, run the steps for"
+    echo "   your manager (SCG won't auto-delete a venv — that's project-specific):"
+    if [ -f "uv.lock" ]; then
+      printf "     ${BOLD}rm -rf .venv && uv sync${NC}\n"
+    elif [ -f "poetry.lock" ]; then
+      printf "     ${BOLD}poetry env remove --all && poetry install${NC}\n"
+    else
+      printf "     ${BOLD}rm -rf .venv && python3 -m venv .venv && pip install -r requirements.txt${NC}\n"
+    fi
+    echo ""
+  fi
+
   # Step 5: Reinstall
   echo "─── Step 5/6: Reinstall ────────────────────"
   if [ -f "package.json" ]; then
@@ -160,7 +182,10 @@ do_critical() {
   echo "   Run a scan to verify cleanup:"
   echo "   ./ioc-scan.sh    (IOC artifacts)"
   if [ -f "package.json" ]; then
-    echo "   ./project-scan.sh (project dependencies)"
+    echo "   ./project-scan.sh (npm dependencies)"
+  fi
+  if [ -f "pyproject.toml" ] || [ -f "requirements.txt" ] || [ -f "uv.lock" ] || [ -f "poetry.lock" ]; then
+    echo "   ./project-scan-py.sh (Python dependencies)"
   fi
   echo ""
 
@@ -180,17 +205,28 @@ do_high() {
   printf "Pin compromised package to a safe version.\n"
   echo ""
 
-  if [ ! -f "package.json" ]; then
-    printf "${RED}ERROR: package.json not found in current directory.${NC}\n"
-    exit 1
-  fi
-
   if [ -z "$pkg" ] || [ -z "$safe_ver" ]; then
     echo "Usage: ./respond.sh --high <package> <safe_version>"
     echo ""
-    echo "Examples:"
-    echo "  ./respond.sh --high axios 1.14.0"
-    echo "  ./respond.sh --high event-stream 3.3.5"
+    echo "Examples (npm):    ./respond.sh --high axios 1.14.0"
+    echo "                   ./respond.sh --high event-stream 3.3.5"
+    echo "Examples (python): ./respond.sh --high urllib3 2.7.0"
+    echo "                   ./respond.sh --high lightning 2.6.3"
+    exit 1
+  fi
+
+  # Route by ecosystem. npm gets full override automation (below); Python is
+  # handled conservatively — we DETECT the manager and PRINT the exact pin
+  # command, applying only the single safe step on [y/N]. We deliberately do
+  # NOT auto-rebuild venvs or force-reinstall (that path forks across
+  # pip/poetry/uv/pipenv/conda and risks collateral damage on a false positive).
+  if [ ! -f "package.json" ]; then
+    if [ -f "pyproject.toml" ] || [ -f "requirements.txt" ] || [ -f "uv.lock" ] || [ -f "poetry.lock" ]; then
+      do_high_python "$pkg" "$safe_ver"
+      return
+    fi
+    printf "${RED}ERROR: no package.json or Python project files in current directory.${NC}\n"
+    printf "       Expected one of: package.json / pyproject.toml / requirements.txt / uv.lock\n"
     exit 1
   fi
 
@@ -245,19 +281,94 @@ print('   Added override.')
 }
 
 # ═══════════════════════════════════════════
+# HIGH response — Python version pin (conservative / "guide, don't automate")
+# ═══════════════════════════════════════════
+# Detects the Python package manager and PRINTS the exact pin command. Only the
+# single safe pin step is applied on [y/N]; reinstall/lock-refresh steps are
+# shown for the user to run, never auto-executed. Rationale: the Python remediation
+# space forks (pip/poetry/uv/pipenv/conda) and a false positive must not trigger
+# a collateral force-reinstall. See gate 2026-07-02-0012.
+do_high_python() {
+  local pkg="$1"
+  local safe_ver="$2"
+
+  # Detect manager. Order matters: a lockfile is a stronger signal than a bare
+  # requirements.txt, so check uv/poetry locks first.
+  local _mgr _pin_cmd _reinstall_cmd
+  if [ -f "uv.lock" ]; then
+    _mgr="uv"
+    _pin_cmd="uv add '${pkg}==${safe_ver}'"
+    _reinstall_cmd="uv sync"
+  elif [ -f "poetry.lock" ] || { [ -f "pyproject.toml" ] && grep -q '\[tool.poetry\]' pyproject.toml 2>/dev/null; }; then
+    _mgr="poetry"
+    _pin_cmd="poetry add '${pkg}@${safe_ver}'"
+    _reinstall_cmd="poetry install"
+  elif [ -f "requirements.txt" ]; then
+    _mgr="pip"
+    # constraints.txt is the safe, non-destructive way to force a version without
+    # rewriting requirements.txt (which may use ranges intentionally).
+    _pin_cmd="printf '%s==%s\\n' '${pkg}' '${safe_ver}' >> constraints.txt  &&  pip install -c constraints.txt -r requirements.txt"
+    _reinstall_cmd="pip install --force-reinstall '${pkg}==${safe_ver}'"
+  else
+    _mgr="pip (PEP 621 / unknown)"
+    _pin_cmd="pip install '${pkg}==${safe_ver}'"
+    _reinstall_cmd="pip install --force-reinstall '${pkg}==${safe_ver}'"
+  fi
+
+  echo "─── Step 1/3: Detected manager ─────────────"
+  echo "   Manager: $_mgr"
+  echo "   Compromised: ${pkg}  →  safe: ${safe_ver}"
+  echo ""
+
+  echo "─── Step 2/3: Pin to safe version ──────────"
+  printf "   The exact command to pin is:\n\n"
+  printf "     ${BOLD}%s${NC}\n\n" "$_pin_cmd"
+  # For pip we can safely apply the constraints pin ourselves (append + install).
+  # For poetry/uv we only PRINT — their commands mutate lockfiles + resolve the
+  # full graph, which we don't want to run unattended on someone's machine.
+  if [ "$_mgr" = "pip" ]; then
+    if confirm "Append '${pkg}==${safe_ver}' to constraints.txt and install with it?"; then
+      printf '%s==%s\n' "$pkg" "$safe_ver" >> constraints.txt
+      printf "   Running: pip install -c constraints.txt -r requirements.txt\n"
+      pip install -c constraints.txt -r requirements.txt
+      printf "   ${GREEN}Pinned via constraints.txt.${NC}\n"
+    fi
+  else
+    printf "   ${YELLOW}Run the command above yourself${NC} — %s mutates the lockfile\n" "$_mgr"
+    printf "   and re-resolves the dependency graph, so SCG won't run it unattended.\n"
+  fi
+  echo ""
+
+  echo "─── Step 3/3: Reinstall & verify ───────────"
+  echo "   If the pin didn't already reinstall, run:"
+  printf "     ${BOLD}%s${NC}\n" "$_reinstall_cmd"
+  echo "   Then verify with:"
+  echo "     ./project-scan-py.sh"
+  echo ""
+
+  printf "${GREEN}${BOLD}Python pin guidance complete.${NC}\n"
+  echo "SCG guided the safe step; you stay in control of lockfile-mutating commands."
+}
+
+# ═══════════════════════════════════════════
 # Help
 # ═══════════════════════════════════════════
 show_help() {
   echo "Supply Chain Guard — Remediation Script"
   echo ""
   echo "Usage:"
-  echo "  ./respond.sh --critical                     Full RAT cleanup"
+  echo "  ./respond.sh --critical                     Full RAT cleanup (npm + Python)"
   echo "  ./respond.sh --high <package> <safe_version> Pin to safe version"
   echo ""
   echo "Examples:"
   echo "  ./respond.sh --critical"
-  echo "  ./respond.sh --high axios 1.14.0"
-  echo "  ./respond.sh --high event-stream 3.3.5"
+  echo "  ./respond.sh --high axios 1.14.0         (npm)"
+  echo "  ./respond.sh --high event-stream 3.3.5   (npm)"
+  echo "  ./respond.sh --high urllib3 2.7.0        (python — auto-detects pip/poetry/uv)"
+  echo ""
+  echo "Python note: SCG guides Python remediation conservatively. It prints the"
+  echo "exact pin command and applies only the safe step; lockfile-mutating and"
+  echo "venv-rebuild commands are shown for you to run. See README#response-playbook."
   echo ""
   echo "Every destructive action requires explicit [y/N] confirmation."
   echo "Default is NO — pressing Enter skips the action."

@@ -181,9 +181,17 @@ Then invoke in Claude Code:
 ./scripts/ioc-scan.sh
 
 # Remediation (interactive, every action requires confirmation)
-./scripts/respond.sh --critical              # Full RAT cleanup
-./scripts/respond.sh --high axios 1.14.0     # Pin to safe version
+./scripts/respond.sh --critical              # Full RAT cleanup (npm + Python)
+./scripts/respond.sh --high axios 1.14.0     # Pin npm package to safe version
+./scripts/respond.sh --high urllib3 2.7.0    # Pin Python package (auto-detects pip/poetry/uv)
 ```
+
+> **Python remediation is conservative by design.** For npm, `--high` applies the
+> override automatically. For Python it *guides*: it detects your manager
+> (pip/poetry/uv), prints the exact pin command, and applies only the safe step —
+> lockfile-mutating and venv-rebuild commands are shown for you to run. This avoids
+> a false positive triggering a collateral force-reinstall across the fragmented
+> Python packaging ecosystem.
 
 For a polyglot repository (npm + Python), run both project scanners sequentially from the relevant subdirectories.
 
@@ -351,8 +359,9 @@ Interactive remediation. **Every destructive action requires `[y/N]` confirmatio
 ./scripts/respond.sh --critical
 
 # HIGH: Pin compromised package to safe version
-./scripts/respond.sh --high axios 1.14.0
-./scripts/respond.sh --high event-stream 3.3.5
+./scripts/respond.sh --high axios 1.14.0        # npm
+./scripts/respond.sh --high event-stream 3.3.5  # npm
+./scripts/respond.sh --high urllib3 2.7.0       # python (pip/poetry/uv auto-detected)
 ```
 
 Steps in `--critical` mode:
@@ -360,10 +369,13 @@ Steps in `--critical` mode:
 2. Kill RAT processes
 3. Remove persistence (LaunchAgents / crontab / scheduled tasks)
 4. Delete `node_modules` and lockfile, clear npm cache
+   - **4b (Python):** purge pip cache (safe, auto); venv-rebuild shown as manual steps
 5. Reinstall dependencies
-6. Prompt for verification scan
+6. Prompt for verification scan (`project-scan.sh` and/or `project-scan-py.sh`)
 
 Each step checks whether action is actually needed (e.g., skips "kill" if no RAT process is running) and shows exactly what will be executed before asking for confirmation.
+
+For **HIGH** mode, npm applies the override automatically; Python is guided (detect manager → print pin command → apply only the safe step). See the Python remediation note in [Quick Start](#quick-start).
 
 ---
 
@@ -654,7 +666,7 @@ da01f8362563b55b1553f923a748f07d24f24522366e0545e6ba0c09801f8e54  scripts/projec
 77e7ebba6d44ea020e511a49bc2cbc974d01495de40d35e8dfb7fcc93008954b  scripts/project-scan-py.sh
 82aaa4ed898ce354addc064ccf84cca9a498ef4e90fe58613e1110146577609f  scripts/ioc-scan.sh
 72ed333838b5584c3b1faf889edc81b0e3195c27396c3b36c62aaebf5f952117  scripts/ioc-scan.ps1
-72a067ff9f608b4fcc04c379a779b7be182165a833df36fe84420d7ab8150438  scripts/respond.sh
+0e6b30e57c959180e22e0ba16f860e9fdc7304045947995084703fb14381d12e  scripts/respond.sh
 a44be79d909058c9d216e7cbc5cca736cf8816a492c8d35a6b90c74c042abf5b  SKILL.md
 ```
 <!-- CHECKSUMS-END -->
