@@ -31,6 +31,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 run_suite "IOC Detection" "$SCRIPT_DIR/test-ioc-detection.sh"
 run_suite "Respond Safety" "$SCRIPT_DIR/test-respond-safety.sh"
 run_suite "Python Scan" "$SCRIPT_DIR/test-python-scan.sh"
+run_suite "IOC 2026 Threats" "$SCRIPT_DIR/test-ioc-2026-threats.sh"
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

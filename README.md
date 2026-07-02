@@ -609,12 +609,12 @@ Verify that your copy of SCG has not been tampered with. Compare these SHA-256 c
 <!-- CHECKSUMS-START -->
 ```
 67ac6216cbe18fdf7050fd267bce4157c016e5c60cd4f84f63b8cf71e80ae3b9  scripts/env-scan.sh
-cbf260276b8cf028ff582579c1edc8a8890078261e69c4b616070b0c720e7b08  scripts/project-scan.sh
-54e7961d6a6d82e01b003fd932ce693175fd30565f0f96d304edf547b1a20dcc  scripts/project-scan-py.sh
-0c084824c180bc8cfac7daf596677eda7d5d1b0c5888f7600bf7272d22678b72  scripts/ioc-scan.sh
+da01f8362563b55b1553f923a748f07d24f24522366e0545e6ba0c09801f8e54  scripts/project-scan.sh
+9a9f38ffca71b7b280fae25d80748193796292e19897bdbd11f388de2f167179  scripts/project-scan-py.sh
+82aaa4ed898ce354addc064ccf84cca9a498ef4e90fe58613e1110146577609f  scripts/ioc-scan.sh
 6b7641f9b3dd252ccce49af93a811b04689cd021ff7a302878a39e0d607598f6  scripts/ioc-scan.ps1
 72a067ff9f608b4fcc04c379a779b7be182165a833df36fe84420d7ab8150438  scripts/respond.sh
-d73400a14374756813142e32bb65e2a487070d581f99da9b3394ff7bc5ad4889  SKILL.md
+a44be79d909058c9d216e7cbc5cca736cf8816a492c8d35a6b90c74c042abf5b  SKILL.md
 ```
 <!-- CHECKSUMS-END -->
 

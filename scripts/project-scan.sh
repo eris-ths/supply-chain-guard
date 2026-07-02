@@ -127,7 +127,16 @@ fi
 echo ""
 echo "─── L3: Static List ──────────────────────"
 
-_MALICIOUS=(plain-crypto-js flatmap-stream crossenv loadsh crypto-js-esm)
+# Purely malicious / dropper / typosquat packages (no legitimate version exists).
+# NOTE: only list names that are *always* bad. Do NOT list legitimate packages
+# that merely had specific compromised versions (e.g. @ctrl/tinycolor,
+# @tanstack/*) — a name-only match would false-positive every honest user of
+# the fixed release. Those version-specific compromises are tracked in
+# SKILL.md D.2 with the affected version ranges for manual verification.
+_MALICIOUS=(
+  plain-crypto-js flatmap-stream crossenv loadsh crypto-js-esm
+  easy-day-js          # dayjs typosquat dropper (Mastra @mastra/* compromise, 2026-06-17)
+)
 _L3_HIT=0
 
 for p in "${_MALICIOUS[@]}"; do

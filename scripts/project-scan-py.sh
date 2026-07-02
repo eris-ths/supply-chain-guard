@@ -147,8 +147,21 @@ _L3_LIST=(
 
 # Known CVE-flagged versions of legitimate packages (for awareness, not blocking)
 # Format: "package_name|version_constraint|cve|description"
+#
+# Two kinds of entries live here:
+#   (a) genuine vulnerabilities in a legit package (e.g. urllib3 DoS)
+#   (b) specific package *versions* that shipped a malicious payload after an
+#       account/CI takeover, then were yanked (e.g. PyTorch Lightning 2.6.2/2.6.3).
+#       These are pinned to the exact bad versions so a project that pinned to one
+#       is flagged, while the fixed release is reported safe.
 _L3_CVE_LIST=(
   "starlette|<1.0.1|CVE-2026-48710|BadHost — HTTP Host header path injection → SSRF/RCE"
+  "lightning|==2.6.2|CVE-2026-44484|Compromised release (2026-04-30): __init__.py fetches Bun runtime + runs obfuscated JS payload. Fixed: 2.6.1 / re-released clean"
+  "pytorch-lightning|==2.6.2|CVE-2026-44484|Compromised release (2026-04-30): import-time malicious payload. Use 2.6.1 or a re-released clean version"
+  "litellm|>=1.82.7,<1.82.9|GHSA-5mg7-485q-xm76|Compromised releases 1.82.7/1.82.8 (2026-03-25): PyPI token stolen via CI, .pth file runs payload at interpreter startup. Quarantined"
+  "durabletask|>=1.4.1,<=1.4.3|GHSA-c9j4-9m59-847w|Compromised releases (2026-05-19, TeamPCP/Mini-Shai-Hulud): cloud credential theft + Linux wiper. Fixed: 1.4.0"
+  "urllib3|<2.6.3|CVE-2026-21441|Decompression-bomb protection bypassed on redirect → DoS (CVSS 8.9). Fixed: 2.6.3"
+  "urllib3|<2.7.0|CVE-2026-44431|Sensitive headers leaked on cross-origin redirect via assert_same_host=False low-level API. Fixed: 2.7.0"
 )
 
 _L3_MAL_HITS=0
