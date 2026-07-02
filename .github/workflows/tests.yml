@@ -44,10 +44,10 @@ jobs:
           echo "Checksums up to date."
 
   # Windows scanner cannot run the bash suite (no lsof/pgrep), so we verify the
-  # PowerShell IOC scanner separately: it must parse and run clean-exit 0 on a
-  # clean runner. This is the Windows analogue of the clean-machine no-FP test —
-  # it guards against the class of bug where set/pipefail-style aborts make a
-  # clean project report CRITICAL (the sh side of this is in test-ioc-2026-threats).
+  # PowerShell IOC scanner separately. Two guarantees, mirroring the sh side
+  # (test-ioc-2026-threats.sh): (1) it parses, and (2) it both stays CLEAR on a
+  # clean tree AND actually detects planted Shai-Hulud/SANDWORM_MODE artifacts.
+  # This closes the "clean-exit 0 proved, but does it detect anything?" gap.
   windows-ps1:
     runs-on: windows-latest
     steps:
@@ -66,13 +66,6 @@ jobs:
           }
           Write-Host "ioc-scan.ps1 parses clean."
 
-      - name: Run ioc-scan.ps1 on clean runner (must exit 0, no false positive)
+      - name: Run ps1 IOC test suite (clean no-FP + positive detection)
         shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          ./scripts/ioc-scan.ps1
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "::error::ioc-scan.ps1 reported CRITICAL on a clean runner (false positive)"
-            exit 1
-          }
-          Write-Host "ioc-scan.ps1 clean-exit 0 on clean runner."
+        run: pwsh -NoProfile -File tests/test-ioc-ps1.ps1
