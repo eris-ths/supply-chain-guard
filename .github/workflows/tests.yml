@@ -1,0 +1,44 @@
+name: tests
+
+# Runs the SCG test suite on every push and PR. The suite includes:
+#   - scanner behavior (IOC, respond safety, Python scan, 2026 threats)
+#   - doc-rot guard (test-docs-commands.sh): every scripts/*.sh path referenced
+#     in README.md / SKILL.md must exist. This is the CI-safe half of "verify
+#     doc commands"; guild-cli `gate` examples need guild-cli and are checked
+#     manually against `--help` (SCG stays dependency-free — no guild-cli in CI).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show environment
+        run: |
+          bash --version | head -1
+          python3 --version
+
+      - name: Run test suite
+        run: bash tests/run-all.sh
+
+      - name: Verify README integrity checksums are up to date
+        run: |
+          # Regenerate into a temp copy and diff — fail if drift, so a scanner
+          # change that forgot `update-checksums.sh` is caught in CI.
+          cp README.md /tmp/README.before
+          bash scripts/update-checksums.sh
+          if ! diff -q /tmp/README.before README.md >/dev/null; then
+            echo "::error::README checksums are stale. Run scripts/update-checksums.sh and commit."
+            diff /tmp/README.before README.md || true
+            exit 1
+          fi
+          echo "Checksums up to date."
